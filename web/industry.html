@@ -498,8 +498,8 @@
               <label>Malzeme / Alaşım</label>
               <select id="fMatKey"></select>
             </div>
-            <div class="field"><label>Özkütle (g/cm³ — Düzenlenebilir)</label><input id="fDensity" type="number" step="0.01" value="7.93" class="num" /></div>
-            <div class="field" id="wKgPrice"><label>Malzeme Fiyatı (₺/kg — Düzenlenebilir)</label><input id="fKgPrice" type="number" step="5" value="245" class="num" /></div>
+            <div class="field"><label>Özkütle (g/cm³)</label><input id="fDensity" type="number" step="0.01" value="7.93" class="num" /></div>
+            <div class="field" id="wKgPrice"><label>Kg Alış Fiyatı (₺/kg)</label><input id="fKgPrice" type="number" step="5" value="245" class="num" /></div>
 
             <div class="field" id="wDirectMat" style="display:none"><label>Parça Başı Malzeme Bedeli (₺/adet)</label><input id="fDirectMat" type="number" step="10" value="1608" class="num" /></div>
             <div class="field" id="wGrams" style="display:none"><label>Net Ağırlık (gram)</label><input id="fGrams" type="number" step="10" value="2310" class="num" /></div>
@@ -514,7 +514,8 @@
             <div class="field" id="wDimX"><label>Genişlik X (mm)</label><input id="fDimX" type="number" step="0.5" value="56" class="num" /></div>
             <div class="field" id="wDimY"><label>Derinlik Y (mm)</label><input id="fDimY" type="number" step="0.5" value="75" class="num" /></div>
             <div class="field" id="wDimZ"><label>Uzunluk Z (mm)</label><input id="fDimZ" type="number" step="0.5" value="182.5" class="num" /></div>
-            <div class="field" id="wScrap"><label>Kesim / Fire Payı (%)</label><input id="fScrap" type="number" step="1" value="8" class="num" /></div>
+            <div class="field" id="wScrap"><label>Kesim / Fire Payı (%)</label><input id="fScrap" type="number" step="1" value="0" class="num" /></div>
+            <div class="field" id="wStock"><label>Stok Payı (mm — Her Ölçüye +)</label><input id="fStockAllow" type="number" step="1" min="0" value="5" class="num" /></div>
           </div>
           <div class="formula-bar num" id="materialFormulaBar"></div>
 
@@ -890,6 +891,7 @@
     $("wDimY").style.display = (m === "billet" && !cyl) ? "flex" : "none";
     $("wDimZ").style.display = m === "billet" ? "flex" : "none";
     $("wScrap").style.display = (m === "billet" || m === "grams") ? "flex" : "none";
+    $("wStock").style.display = m === "billet" ? "flex" : "none";
     recalc();
   }
   document.querySelectorAll("#modeSeg .seg-btn").forEach(b => b.onclick = () => setPricingMode(b.dataset.mode));
@@ -930,6 +932,7 @@
       dimY: Number($("fDimY").value) || 0,
       dimZ: Number($("fDimZ").value) || 0,
       scrap: Number($("fScrap").value) || 0,
+      stockAllow: Math.max(0, Number($("fStockAllow").value) || 0),
       turnMin: Number($("fTurnMin").value) || 0,
       turnRate: Number($("fTurnRate").value) || 0,
       millMin: Number($("fMillMin").value) || 0,
@@ -964,16 +967,22 @@
       matUnit = billetKg * f.kgPrice;
       specLabel = `Net ${(netKg * 1000).toFixed(0)} g · Fireli ${billetKg.toFixed(3)} kg`;
     } else {
+      const st = Math.max(0, Number(f.stockAllow) || 0);
+      const rawD = f.dimD + st;
+      const rawX = f.dimX + st;
+      const rawY = f.dimY + st;
+      const rawZ = f.dimZ + st;
       volCm3 = f.shape === "cylindrical"
-        ? Math.PI * Math.pow(f.dimD / 20, 2) * (f.dimZ / 10)
-        : (f.dimX * f.dimY * f.dimZ) / 1000;
+        ? Math.PI * Math.pow(rawD / 20, 2) * (rawZ / 10)
+        : (rawX * rawY * rawZ) / 1000;
       rawKg = (volCm3 * density) / 1000;
       billetKg = rawKg * (1 + f.scrap / 100);
       netKg = lastNetKgFromVision > 0 && lastNetKgFromVision < rawKg ? lastNetKgFromVision : rawKg * 0.55;
       matUnit = billetKg * f.kgPrice;
+      const stockTag = st > 0 ? ` (+${st} mm stok → ${f.shape === "cylindrical" ? `Ø${rawD} × ${rawZ} mm` : `${rawX} × ${rawY} × ${rawZ} mm`})` : "";
       specLabel = f.shape === "cylindrical"
-        ? `Ø${f.dimD} × ${f.dimZ} mm · Özkütle ${density.toFixed(2)} g/cm³`
-        : `${f.dimX} × ${f.dimY} × ${f.dimZ} mm · Özkütle ${density.toFixed(2)} g/cm³`;
+        ? `Finiş Ø${f.dimD} × ${f.dimZ} mm${stockTag} · Özkütle ${density.toFixed(2)} g/cm³`
+        : `Finiş ${f.dimX} × ${f.dimY} × ${f.dimZ} mm${stockTag} · Özkütle ${density.toFixed(2)} g/cm³`;
     }
 
     const turnU = (f.turnMin / 60) * f.turnRate;
@@ -1015,7 +1024,7 @@
     $("kpiUnitSell").textContent = `Birim satış: ${fmt(c.sellUnit)} ₺ / adet + KDV`;
 
     $("materialFormulaBar").innerHTML = f.pricingMode === "billet"
-      ? `<strong>Özkütle &amp; Ağırlık Hesabı:</strong> Hacim <strong>${c.volCm3.toFixed(1)} cm³</strong> × Özkütle <strong>${c.density.toFixed(2)} g/cm³</strong> = <strong>${(c.rawKg * 1000).toFixed(0)} g (${c.rawKg.toFixed(3)} kg)</strong> ham parça → +%${f.scrap} fire ile <strong>${c.billetKg.toFixed(3)} kg/ad</strong> × ${fmt(f.kgPrice)} ₺/kg = <strong>${fmt(c.matUnit)} ₺/adet</strong> (${f.qty} adet toplam <strong>${c.totalWeightKg.toFixed(2)} kg · ${fmt(c.matTotal)} ₺</strong>)`
+      ? `<strong>Kütük &amp; Özkütle Hesabı:</strong> ${c.specLabel} · Ham Hacim <strong>${c.volCm3.toFixed(1)} cm³</strong> × <strong>${c.density.toFixed(2)} g/cm³</strong> = <strong>${c.rawKg.toFixed(3)} kg/ad</strong>${f.scrap > 0 ? ` (+%${f.scrap} fire → <strong>${c.billetKg.toFixed(3)} kg/ad</strong>)` : ""} × ${fmt(f.kgPrice)} ₺/kg = <strong>${fmt(c.matUnit)} ₺/adet</strong> (${f.qty} adet toplam <strong>${c.totalWeightKg.toFixed(2)} kg · ${fmt(c.matTotal)} ₺</strong>)`
       : f.pricingMode === "fason"
         ? `<strong>Fason İşçilik Modu:</strong> Malzeme müşteri tarafından sağlanır (0,00 ₺). Yalnızca CNC tezgâh, bağlama ve işçilik fiyatlandırılır.`
         : `<strong>Malzeme Özeti:</strong> ${c.alloy.name} (${c.density.toFixed(2)} g/cm³) · Parça başı <strong>${fmt(c.matUnit)} ₺/adet</strong> · ${f.qty} adet toplam <strong>${fmt(c.matTotal)} ₺</strong>`;
@@ -1450,9 +1459,10 @@ ${s.phone}`;
       $("fCustomer").value = item.customer || ""; $("fContact").value = item.contact || "";
       $("fPartName").value = item.partName || ""; $("fPartCode").value = item.partCode || "";
       $("fQty").value = item.qty || 1; $("fTol").value = item.tol || "";
-      $("fMatKey").value = item.materialKey || "ss304"; $("fKgPrice").value = item.kgPrice || 245;
+      $("fMatKey").value = item.materialKey || "ss304"; $("fDensity").value = item.density || (ALLOYS[item.materialKey]?.density || 7.93); $("fKgPrice").value = item.kgPrice || 245;
       $("fShape").value = item.shape || "prismatic";
       $("fDimD").value = item.dimD || 60; $("fDimX").value = item.dimX || 56; $("fDimY").value = item.dimY || 75; $("fDimZ").value = item.dimZ || 182.5;
+      $("fScrap").value = item.scrap ?? 0; $("fStockAllow").value = item.stockAllow ?? 5;
       $("fTurnMin").value = item.turnMin || 0; $("fMillMin").value = item.millMin || 0;
       $("fPhone").value = item.phone || ""; $("fEmail").value = item.email || "";
       setPricingMode(item.pricingMode || "billet");
@@ -1679,7 +1689,7 @@ ${s.phone}`;
   };
 
   // INPUT LISTENERS
-  ["fCustomer","fContact","fPartName","fPartCode","fQty","fTol","fDensity","fDirectMat","fGrams","fKgPrice","fDimD","fDimX","fDimY","fDimZ","fScrap","fTurnMin","fTurnRate","fMillMin","fMillRate","fEdmMin","fSetupMin","fToolPct","fOutside","fMargin","fPhone","fEmail","fLeadDays"].forEach(id => {
+  ["fCustomer","fContact","fPartName","fPartCode","fQty","fTol","fDensity","fDirectMat","fGrams","fKgPrice","fDimD","fDimX","fDimY","fDimZ","fScrap","fStockAllow","fTurnMin","fTurnRate","fMillMin","fMillRate","fEdmMin","fSetupMin","fToolPct","fOutside","fMargin","fPhone","fEmail","fLeadDays"].forEach(id => {
     $(id).addEventListener("input", recalc);
   });
   $("fMatKey").onchange = () => {
