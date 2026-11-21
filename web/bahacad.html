@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BahaCAD — 2D Teknik Resim PDF → 3D OpenCascade B-Rep STEP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif; }
+  html, body { height: 100%; width: 100%; overflow: hidden; background: #070b14; color: #f8fafc; }
+  .layout { display: grid; grid-template-columns: 356px 1fr; height: 100vh; width: 100vw; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } }
+
+  /* Clean Left Rail — ONLY PDF -> 3D STEP! */
+  .rail {
+    background: #0b1120; border-right: 1px solid rgba(255,255,255,0.09);
+    display: flex; flex-direction: column; padding: 16px; gap: 12px; overflow-y: auto;
+  }
+  .rail-head { display: flex; align-items: center; justify-content: space-between; }
+  .rail-title { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
+  .rail-title span { color: #38bdf8; }
+  .occt-pill {
+    font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 99px;
+    background: rgba(16,185,129,0.16); border: 1px solid rgba(16,185,129,0.45); color: #6ee7b7;
+  }
+
+  .dropzone {
+    border: 2px dashed rgba(56,189,248,0.55); border-radius: 14px; padding: 20px 14px;
+    text-align: center; cursor: pointer; background: rgba(56,189,248,0.06);
+    transition: all .18s ease;
+  }
+  .dropzone:hover, .dropzone.dragover {
+    background: rgba(56,189,248,0.16); border-color: #4ade80; transform: translateY(-1px);
+  }
+  .dropzone .ico { font-size: 28px; margin-bottom: 6px; }
+  .dropzone strong { display: block; font-size: 13.5px; color: #f8fafc; margin-bottom: 4px; }
+  .dropzone small { font-size: 11px; color: #94a3b8; line-height: 1.4; display: block; }
+
+  .pdf-preview-wrap {
+    display: none; background: #0f172a; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px; overflow: hidden;
+  }
+  .pdf-preview-wrap.show { display: block; }
+  .pdf-preview-bar {
+    padding: 7px 10px; font-size: 11px; font-weight: 700; color: #cbd5e1;
+    background: rgba(255,255,255,0.04); display: flex; justify-content: space-between; align-items: center;
+  }
+  .pdf-preview-img {
+    width: 100%; max-height: 185px; object-fit: contain; background: #ffffff; display: block;
+    cursor: zoom-in;
+  }
+
+  .status-card {
+    background: rgba(15,23,42,0.85); border: 1px solid rgba(56,189,248,0.28);
+    border-radius: 12px; padding: 11px 12px; font-size: 12px; line-height: 1.48; color: #cbd5e1;
+  }
+  .status-card.ok { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.08); }
+  .status-card.err { border-color: rgba(239,68,68,0.55); background: rgba(239,68,68,0.10); color: #fecaca; }
+
+  .steps-list { display: flex; flex-direction: column; gap: 5px; margin-top: 7px; font-size: 11px; color: #94a3b8; }
+  .step-item.done { color: #6ee7b7; font-weight: 700; }
+  .step-item.active { color: #38bdf8; font-weight: 700; }
+
+  .specs-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+  .spec-box {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 8px 10px;
+  }
+  .spec-box .l { font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 700; }
+  .spec-box .v { font-size: 13px; font-weight: 800; color: #f8fafc; margin-top: 2px; }
+  .spec-box .v.green { color: #4ade80; }
+
+  .actions { display: flex; flex-direction: column; gap: 8px; }
+  .btn {
+    cursor: pointer; border: none; border-radius: 11px; padding: 11px 14px; font-size: 13px;
+    font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    transition: all .15s; width: 100%;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
+  .btn.step { background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 8px 22px rgba(16,185,129,0.28); }
+  .btn.cam { background: linear-gradient(135deg, #f57c00, #ea580c); color: #fff; }
+  .btn.row-half { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0; background: none; }
+  .btn.sec { background: #162036; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.12); padding: 9px 10px; font-size: 12px; }
+
+  .refine-box { display: flex; gap: 6px; }
+  .refine-box input {
+    flex: 1; background: #070b14; border: 1px solid rgba(255,255,255,0.14); color: #fff;
+    border-radius: 9px; padding: 8px 10px; font-size: 12px; outline: none;
+  }
+  .refine-box input:focus { border-color: #38bdf8; }
+  .refine-box button {
+    background: #2563eb; color: #fff; border: none; border-radius: 9px; padding: 0 12px;
+    font-size: 12px; font-weight: 800; cursor: pointer;
+  }
+
+  details.code-wrap { background: #070b14; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 8px 10px; }
+  details.code-wrap summary { cursor: pointer; font-size: 11.5px; font-weight: 700; color: #7dd3fc; }
+  pre.code-pre {
+    margin-top: 8px; font-family: "SF Mono", Menlo, monospace; font-size: 10.5px;
+    color: #93c5fd; white-space: pre-wrap; max-height: 180px; overflow-y: auto; line-height: 1.4;
+  }
+
+  /* Full-Screen Clean 3D CAD Viewport (SolidWorks Studio Aesthetic) */
+  .stage {
+    position: relative; height: 100%; width: 100%; overflow: hidden;
+    background: radial-gradient(circle at 50% 42%, #1d283a 0%, #0d1424 62%, #070b14 100%);
+  }
+  #viewport { width: 100%; height: 100%; }
+
+  .view-toolbar {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 20;
+    display: flex; gap: 5px; padding: 5px 7px; border-radius: 12px;
+    background: rgba(11,17,32,0.84); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 10px 28px rgba(0,0,0,0.4);
+  }
+  .vbtn {
+    cursor: pointer; border: 1px solid transparent; background: transparent; color: #cbd5e1;
+    padding: 5px 10px; border-radius: 8px; font-size: 11.5px; font-weight: 700; transition: .15s;
+  }
+  .vbtn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .vbtn.on { background: rgba(56,189,248,0.2); border-color: rgba(56,189,248,0.45); color: #7dd3fc; }
+
+  .empty-hint {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    pointer-events: none; text-align: center; padding: 24px; transition: opacity .25s;
+  }
+  .empty-hint.gone { opacity: 0; }
+  .empty-hint h2 { font-size: 24px; font-weight: 800; color: rgba(248,250,252,0.88); margin-bottom: 8px; }
+  .empty-hint p { font-size: 13.5px; color: #94a3b8; max-width: 480px; line-height: 1.55; }
+
+  .hud-bottom {
+    position: absolute; bottom: 14px; left: 16px; right: 16px; z-index: 15;
+    display: flex; justify-content: space-between; align-items: center; pointer-events: none;
+    font-size: 11.5px; color: #94a3b8;
+  }
+  .hud-chip {
+    background: rgba(11,17,32,0.82); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.1); padding: 5px 11px; border-radius: 99px;
+    color: #cbd5e1; font-weight: 700;
+  }
+
+  .zoom-modal {
+    position: fixed; inset: 0; background: rgba(2,6,23,0.88); backdrop-filter: blur(8px);
+    display: none; place-items: center; z-index: 9999; padding: 24px; cursor: zoom-out;
+  }
+  .zoom-modal.open { display: grid; }
+  .zoom-modal img { max-width: 92vw; max-height: 90vh; background: #fff; border-radius: 12px; box-shadow: 0 24px 70px rgba(0,0,0,0.7); }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="rail">
+    <div class="rail-head">
+      <div class="rail-title">📐 BahaCAD <span>PDF → STEP</span></div>
+      <span class="occt-pill" id="kernelPill">OpenCascade B-Rep</span>
+    </div>
+
+    <div class="dropzone" id="dropzone">
+      <div class="ico">📄</div>
+      <strong>Teknik Resim PDF'ini Buraya Bırak</strong>
+      <small>veya tıklayıp seç (.PDF, .PNG, .JPG)<br/>Gerçek OpenCascade B-Rep ISO 10303-21 .STEP üretir</small>
+      <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.webp" style="display:none;" />
+    </div>
+
+    <div class="pdf-preview-wrap" id="pdfPreviewWrap">
+      <div class="pdf-preview-bar">
+        <span id="pdfFileName">Teknik Resim</span>
+        <span style="color:#38bdf8;font-size:10.5px;">Büyütmek için tıkla</span>
+      </div>
+      <img id="pdfPreviewImg" class="pdf-preview-img" alt="PDF Teknik Resim" />
+    </div>
+
+    <div class="status-card" id="statusCard">
+      <div id="statusText">Hazır — bir 2D teknik resim PDF'i sürükleyip bıraktığında OpenCascade B-Rep motoru gerçek <b>.STEP</b> katı modelini üretir.</div>
+      <div class="steps-list" id="stepsList" style="display:none;">
+        <div class="step-item" id="st1">○ 1. PyMuPDF 300 DPI + Ölçü/Vektör Okuma</div>
+        <div class="step-item" id="st2">○ 2. Grok-4.20 Vision → build123d B-Rep Kodu</div>
+        <div class="step-item" id="st3">○ 3. OpenCascade (OCCT) Katı Model Derleme</div>
+        <div class="step-item" id="st4">○ 4. ISO 10303-21 AP214 .STEP &amp; 3D Önizleme</div>
+      </div>
+    </div>
+
+    <div class="specs-grid" id="specsGrid" style="display:none;">
+      <div class="spec-box"><div class="l">Kutu Ölçü (mm)</div><div class="v" id="spBbox">-</div></div>
+      <div class="spec-box"><div class="l">B-Rep Hacim</div><div class="v green" id="spVol">-</div></div>
+      <div class="spec-box"><div class="l">Tahmini Ağırlık</div><div class="v" id="spMass">-</div></div>
+      <div class="spec-box"><div class="l">B-Rep Yüzey / Kenar</div><div class="v" id="spTopo">-</div></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn step" id="btnDownloadStep" disabled>📐 .STEP İndir (ISO 10303-21 B-Rep)</button>
+      <button class="btn cam" id="btnSendCam" disabled>⚙️ BahaCAM VoluMill'e Gönder</button>
+      <div class="btn row-half">
+        <button class="btn sec" id="btnDownloadStl" disabled>🧊 .STL İndir</button>
+        <button class="btn sec" id="btnDownloadPy" disabled>🐍 .PY Kodu</button>
+      </div>
+    </div>
+
+    <div id="refineWrap" style="display:none;">
+      <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:5px;">✨ Ölçü / Revizyon Düzelt (isteğe bağlı)</div>
+      <div class="refine-box">
+        <input id="refineInput" placeholder="ör. Ortadaki deliği Ø40 yap, kenara R2 pah kır..." />
+        <button id="btnRefine">Uygula</button>
+      </div>
+    </div>
+
+    <details class="code-wrap" id="codeWrap" style="display:none;">
+      <summary>🔧 Üretilen OpenCascade (build123d) B-Rep Kodu</summary>
+      <pre class="code-pre" id="codePre"></pre>
+    </details>
+  </aside>
+
+  <main class="stage" id="stageDrop">
+    <div class="view-toolbar">
+      <button class="vbtn on" onclick="setCameraView('iso')">İzometrik</button>
+      <button class="vbtn" onclick="setCameraView('front')">Ön</button>
+      <button class="vbtn" onclick="setCameraView('top')">Üst</button>
+      <button class="vbtn" onclick="setCameraView('right')">Sağ</button>
+      <button class="vbtn on" id="btnEdges" onclick="toggleEdges()">Kenar Çizgisi</button>
+      <button class="vbtn" id="btnWire" onclick="toggleWire()">Tel Kafes</button>
+      <button class="vbtn" onclick="fitCamera()">Sığdır</button>
+    </div>
+
+    <div id="viewport"></div>
+
+    <div class="empty-hint" id="emptyHint">
+      <h2>2D Teknik Resim PDF → 3D STEP</h2>
+      <p>Herhangi bir makine/kalıp teknik resim PDF'ini doğrudan bu pencereye veya sol alana sürükleyip bırak.<br/>Gerçek <b>OpenCascade B-Rep</b> çekirdeğiyle SolidWorks &amp; Cimatron uyumlu <b>.STEP</b> anında burada oluşur.</p>
+    </div>
+
+    <div class="hud-bottom">
+      <span class="hud-chip" id="hudPartName">Model bekleniyor...</span>
+      <span class="hud-chip">Sol Tık: Döndür · Sağ Tık: Kaydır · Tekerlek: Yakınlaştır</span>
+    </div>
+  </main>
+</div>
+
+<div class="zoom-modal" id="zoomModal" onclick="this.classList.remove('open')">
+  <img id="zoomImg" alt="Büyük PDF Önizleme" />
+</div>
+
+<script>
+  // --- SolidWorks-Grade Three.js Studio Viewport ---
+  const vp = document.getElementById("viewport");
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(42, vp.clientWidth / vp.clientHeight, 0.1, 5000);
+  camera.position.set(160, 120, 160);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(vp.clientWidth, vp.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
+  vp.appendChild(renderer.domElement);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+
+  // 3-Point CAD Studio Lighting
+  scene.add(new THREE.AmbientLight(0xdbeafe, 0.55));
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.05);
+  keyLight.position.set(220, 320, 200);
+  scene.add(keyLight);
+  const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.55);
+  fillLight.position.set(-220, 140, -180);
+  scene.add(fillLight);
+  const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.35);
+  rimLight.position.set(0, -180, 160);
+  scene.add(rimLight);
+
+  // Subtle CAD floor grid + XYZ axes
+  const grid = new THREE.GridHelper(300, 30, 0x334155, 0x1e293b);
+  grid.position.y = -0.1;
+  scene.add(grid);
+  const axes = new THREE.AxesHelper(45);
+  scene.add(axes);
+
+  let modelGroup = null;
+  let solidMesh = null;
+  let edgeLines = null;
+  let showEdges = true;
+  let wireMode = false;
+  let currentRadius = 80;
+  let currentBundle = null;
+
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener("resize", () => {
+    camera.aspect = vp.clientWidth / vp.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(vp.clientWidth, vp.clientHeight);
+  });
+
+  function fitCamera() {
+    const d = Math.max(currentRadius * 2.55, 50);
+    camera.position.set(d * 0.78, d * 0.62, d * 0.82);
+    controls.target.set(0, 0, 0);
+    controls.update();
+  }
+
+  function setCameraView(v) {
+    const d = Math.max(currentRadius * 2.6, 55);
+    if (v === "front") camera.position.set(0, 0, d);
+    else if (v === "top") camera.position.set(0, d, 0.01);
+    else if (v === "right") camera.position.set(d, 0, 0);
+    else camera.position.set(d * 0.78, d * 0.62, d * 0.82);
+    controls.target.set(0, 0, 0);
+    controls.update();
+  }
+
+  function toggleEdges() {
+    showEdges = !showEdges;
+    document.getElementById("btnEdges").classList.toggle("on", showEdges);
+    if (edgeLines) edgeLines.visible = showEdges;
+  }
+
+  function toggleWire() {
+    wireMode = !wireMode;
+    document.getElementById("btnWire").classList.toggle("on", wireMode);
+    if (solidMesh) solidMesh.material.wireframe = wireMode;
+  }
+
+  function renderSolidStl(stlText) {
+    if (modelGroup) scene.remove(modelGroup);
+    const loader = new THREE.STLLoader();
+    const geom = loader.parse(stlText);
+    geom.computeVertexNormals();
+    geom.center();
+
+    // Rotate CAD Z-up to Three.js Y-up
+    geom.rotateX(-Math.PI / 2);
+    geom.computeBoundingBox();
+    geom.computeBoundingSphere();
+
+    // Sit bottom neatly on floor grid
+    const minY = geom.boundingBox.min.y;
+    geom.translate(0, -minY, 0);
+    geom.computeBoundingSphere();
+    currentRadius = Math.max(geom.boundingSphere.radius, 15);
+
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xb8c7d9,
+      metalness: 0.62,
+      roughness: 0.30,
+      wireframe: wireMode,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
+    });
+    solidMesh = new THREE.Mesh(geom, mat);
+
+    const edgesGeom = new THREE.EdgesGeometry(geom, 24);
+    const edgesMat = new THREE.LineBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.75 });
+    edgeLines = new THREE.LineSegments(edgesGeom, edgesMat);
+    edgeLines.visible = showEdges;
+
+    modelGroup = new THREE.Group();
+    modelGroup.add(solidMesh, edgeLines);
+    scene.add(modelGroup);
+
+    const cy = (geom.boundingBox.max.y - geom.boundingBox.min.y) * 0.5;
+    controls.target.set(0, cy, 0);
+    const d = Math.max(currentRadius * 2.55, 50);
+    camera.position.set(d * 0.78, cy + d * 0.52, d * 0.82);
+    controls.update();
+
+    document.getElementById("emptyHint").classList.add("gone");
+  }
+
+  function setPipelineStep(activeIdx) {
+    document.getElementById("stepsList").style.display = "flex";
+    for (let i = 1; i <= 4; i++) {
+      const el = document.getElementById("st" + i);
+      el.className = "step-item" + (i < activeIdx ? " done" : i === activeIdx ? " active" : "");
+      el.textContent = (i < activeIdx ? "✅ " : i === activeIdx ? "⏳ " : "○ ") + el.textContent.replace(/^[○⏳✅]\s*/, "");
+    }
+  }
+
+  function downloadBlob(filename, text, mime) {
+    const blob = new Blob([text], { type: mime });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 300);
+  }
+
+  function applyResult(data) {
+    currentBundle = data;
+    setPipelineStep(5);
+
+    const card = document.getElementById("statusCard");
+    card.className = "status-card ok";
+    document.getElementById("statusText").innerHTML =
+      `✅ <b>${data.part_name}</b> hazır! (${data.engine})<br>` +
+      `<span style="color:#94a3b8;font-size:11px;">${data.engineering_notes || ""}</span>`;
+
+    if (data.preview_png_b64) {
+      document.getElementById("pdfPreviewImg").src = data.preview_png_b64;
+      document.getElementById("zoomImg").src = data.preview_png_b64;
+      document.getElementById("pdfPreviewWrap").classList.add("show");
+    }
+
+    const st = data.stats || {};
+    document.getElementById("specsGrid").style.display = "grid";
+    document.getElementById("spBbox").textContent = (st.bbox_mm || [0,0,0]).map(x => Number(x).toFixed(1)).join(" × ");
+    document.getElementById("spVol").textContent = (st.volume_cm3 ?? 0) + " cm³";
+    document.getElementById("spMass").textContent = (st.mass_kg ?? 0) + " kg (" + (data.material || "Çelik") + ")";
+    document.getElementById("spTopo").textContent = (st.faces || "-") + " yüzey / " + (st.edges || "-") + " kenar";
+    document.getElementById("hudPartName").textContent = `📐 ${data.part_name} • ${document.getElementById("spBbox").textContent} mm • Gerçek AP214 .STEP`;
+
+    document.getElementById("btnDownloadStep").disabled = false;
+    document.getElementById("btnSendCam").disabled = false;
+    document.getElementById("btnDownloadStl").disabled = false;
+    document.getElementById("btnDownloadPy").disabled = !data.python_code;
+    document.getElementById("refineWrap").style.display = "block";
+    if (data.python_code) {
+      document.getElementById("codePre").textContent = data.python_code;
+      document.getElementById("codeWrap").style.display = "block";
+    }
+
+    renderSolidStl(data.stl_content);
+  }
+
+  async function convertPdfFile(file) {
+    if (!file) return;
+    document.getElementById("pdfFileName").textContent = file.name;
+    const card = document.getElementById("statusCard");
+    card.className = "status-card";
+    document.getElementById("statusText").innerHTML = `⏳ <b>${file.name}</b> analiz ediliyor ve OpenCascade B-Rep 3D STEP üretiliyor...`;
+    setPipelineStep(1);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      setTimeout(() => setPipelineStep(2), 700);
+      setTimeout(() => setPipelineStep(3), 4500);
+      try {
+        const res = await fetch("/api/pdf2step", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name, file_b64: reader.result }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || "Dönüştürme başarısız");
+        applyResult(data);
+      } catch (err) {
+        card.className = "status-card err";
+        document.getElementById("statusText").textContent = "❌ Hata: " + err.message;
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function refineModel() {
+    const instr = document.getElementById("refineInput").value.trim();
+    if (!instr || !currentBundle) return;
+    const card = document.getElementById("statusCard");
+    card.className = "status-card";
+    document.getElementById("statusText").innerHTML = `⏳ Revizyon uygulanıyor: <i>"${instr}"</i>...`;
+    setPipelineStep(2);
+    try {
+      const res = await fetch("/api/refine-step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instruction: instr,
+          previous_code: currentBundle.python_code || "",
+          preview_png_b64: currentBundle.preview_png_b64 || "",
+          part_name: currentBundle.part_name || "Parca",
+          material: currentBundle.material || "Çelik 4140",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Revizyon hatası");
+      document.getElementById("refineInput").value = "";
+      applyResult(data);
+    } catch (err) {
+      card.className = "status-card err";
+      document.getElementById("statusText").textContent = "❌ Revizyon hatası: " + err.message;
+    }
+  }
+
+  // Wire dropzones (both left dropzone AND whole 3D viewport accept PDF drops!)
+  const dz = document.getElementById("dropzone");
+  const fi = document.getElementById("fileInput");
+  dz.onclick = () => fi.click();
+  fi.onchange = (e) => { if (e.target.files?.[0]) convertPdfFile(e.target.files[0]); fi.value = ""; };
+
+  [dz, document.getElementById("stageDrop")].forEach((zone) => {
+    zone.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("dragover"); });
+    zone.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dz.classList.remove("dragover");
+      const f = e.dataTransfer?.files?.[0];
+      if (f) convertPdfFile(f);
+    });
+  });
+
+  document.getElementById("pdfPreviewImg").onclick = () => document.getElementById("zoomModal").classList.add("open");
+  document.getElementById("btnRefine").onclick = refineModel;
+  document.getElementById("refineInput").onkeypress = (e) => { if (e.key === "Enter") refineModel(); };
+
+  document.getElementById("btnDownloadStep").onclick = () => {
+    if (!currentBundle) return;
+    downloadBlob(currentBundle.filename_base + ".step", currentBundle.step_content, "application/step");
+  };
+  document.getElementById("btnDownloadStl").onclick = () => {
+    if (!currentBundle) return;
+    downloadBlob(currentBundle.filename_base + ".stl", currentBundle.stl_content, "application/sla");
+  };
+  document.getElementById("btnDownloadPy").onclick = () => {
+    if (!currentBundle?.python_code) return;
+    downloadBlob(currentBundle.filename_base + "_build123d.py", currentBundle.python_code, "text/x-python");
+  };
+  document.getElementById("btnSendCam").onclick = () => {
+    if (!currentBundle) return;
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: "BAHACAD_TO_BAHACAM_STL",
+        partName: currentBundle.part_name,
+        material: currentBundle.material,
+        stlContent: currentBundle.stl_content,
+      }, "*");
+    } else {
+      downloadBlob(currentBundle.filename_base + ".stl", currentBundle.stl_content, "application/sla");
+    }
+  };
+</script>
+</body>
+</html>

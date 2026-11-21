@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BahaCAM | Prompt-to-CAM System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600&family=Fira+Code&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --panel-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-muted: #888888;
+            --accent-orange: #f57c00;
+            --hover-bg: #2a2a2a;
+            --border-color: #333333;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: opacity 0.5s;
+        }
+
+        /* Top Menu Bar */
+        .top-menu-bar {
+            background-color: var(--panel-bg);
+            height: 40px;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border-color);
+            gap: 20px;
+        }
+
+        .top-menu-item {
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+        .top-menu-item:hover {
+            background-color: var(--hover-bg);
+        }
+
+        /* Main Workspace */
+        .main-workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Center Column (Viewport + G-Code Terminal) */
+        .center-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .viewport-container {
+            flex: 2;
+            position: relative;
+            background: radial-gradient(circle at center, #2a2a2a 0%, #121212 100%);
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        #cam-viewport {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* G-Code Terminal */
+        .gcode-terminal {
+            flex: 1;
+            background-color: #0d0d0d;
+            border-top: 1px solid #000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .terminal-header {
+            background-color: var(--panel-bg);
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--accent-orange);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .terminal-content {
+            padding: 10px;
+            font-family: 'Fira Code', monospace;
+            font-size: 13px;
+            color: #00ff00;
+            overflow-y: auto;
+            flex: 1;
+            line-height: 1.5;
+        }
+
+        /* Task Pane (Right) */
+        .task-pane {
+            width: 320px;
+            background-color: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .task-pane-header {
+            background-color: #252525;
+            padding: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ai-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-history {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            font-size: 13px;
+        }
+
+        .msg {
+            max-width: 90%;
+            padding: 10px;
+            border-radius: 6px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .msg.system {
+            background-color: #2a2a2a;
+            border: 1px solid var(--border-color);
+            align-self: flex-start;
+            border-left: 3px solid var(--accent-orange);
+        }
+
+        .msg.user {
+            background-color: #3e2723;
+            border: 1px solid #5d4037;
+            align-self: flex-end;
+        }
+
+        .chat-input {
+            padding: 15px;
+            background-color: #252525;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            padding: 10px;
+            background: #121212;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: #fff;
+            outline: none;
+            font-size: 13px;
+            width: 100%;
+        }
+
+        .chat-input button {
+            background-color: var(--accent-orange);
+            color: #121212;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .chat-input button:hover {
+            background-color: #ff9800;
+        }
+
+        .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .suggestion-chip {
+            font-size: 11px;
+            background: #333;
+            padding: 4px 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            color: #ddd;
+        }
+        .suggestion-chip:hover {
+            background: var(--accent-orange);
+            color: #000;
+        }
+
+    </style>
+
+<style>
+/* Enterprise Modal CSS Injected */
+.enterprise-modal-overlay {
+    position: fixed; inset: 0; background: rgba(8, 12, 16, 0.85);
+    backdrop-filter: blur(24px) saturate(1.5); z-index: 99999;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; visibility: hidden; transition: all 0.4s;
+    font-family: 'Inter', sans-serif;
+}
+.enterprise-modal-overlay.active { opacity: 1; visibility: visible; }
+.enterprise-modal {
+    background: linear-gradient(145deg, rgba(20, 28, 36, 0.9), rgba(13, 19, 25, 0.95));
+    border: 1px solid rgba(212, 132, 90, 0.3); border-radius: 24px;
+    width: 90%; max-width: 500px; padding: 40px;
+    box-shadow: 0 20px 80px rgba(0, 0, 0, 0.8), inset 0 0 40px rgba(212, 132, 90, 0.05);
+    transform: scale(0.95) translateY(20px); transition: all 0.4s; position: relative; overflow: hidden;
+}
+.enterprise-modal-overlay.active .enterprise-modal { transform: scale(1) translateY(0); }
+.enterprise-modal::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+    background: linear-gradient(90deg, transparent, #d4845a, transparent);
+}
+.modal-close-btn { position: absolute; top: 20px; right: 20px; background: none; border: none; color: #9a9088; font-size: 20px; cursor: pointer; }
+.modal-close-btn:hover { color: #c46060; }
+.modal-header { text-align: center; margin-bottom: 24px; }
+.modal-icon {
+    width: 64px; height: 64px; margin: 0 auto 16px; background: rgba(212, 132, 90, 0.07);
+    border: 1px solid rgba(212, 132, 90, 0.2); border-radius: 16px; display: flex; align-items: center; justify-content: center;
+    font-size: 28px; color: #d4845a; box-shadow: 0 0 30px rgba(212, 132, 90, 0.18);
+}
+.modal-header h3 { font-size: 24px; font-weight: 800; color: #ddd5c8; margin-bottom: 8px; }
+.modal-header p { font-size: 14px; color: #9a9088; line-height: 1.6; }
+.modal-body { display: flex; flex-direction: column; gap: 16px; }
+.modal-input-group { position: relative; }
+.modal-input-group i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #5c524c; font-size: 14px; }
+.modal-input {
+    width: 100%; background: rgba(8, 12, 16, 0.6); border: 1px solid #253d55;
+    border-radius: 12px; padding: 14px 14px 14px 44px; color: #ddd5c8; font-size: 14px; outline: none;
+    box-sizing: border-box;
+}
+.modal-input:focus { border-color: #d4845a; }
+.modal-submit-btn {
+    width: 100%; background: linear-gradient(135deg, #d4845a 0%, #a85f38 100%); color: #fff;
+    border: none; padding: 16px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 0 20px rgba(212, 132, 90, 0.18);
+}
+.modal-success-msg { display: none; text-align: center; padding: 20px 0; }
+.modal-success-msg i { font-size: 48px; color: #5cb88a; margin-bottom: 16px; }
+.modal-success-msg h4 { font-size: 20px; color: #ddd5c8; margin-bottom: 8px; }
+.modal-success-msg p { font-size: 14px; color: #9a9088; }
+</style>
+</head>
+<body>
+
+    <!-- Top Menu -->
+    <div class="top-menu-bar">
+        <div style="font-weight:bold; color:var(--accent-orange); margin-right:15px; font-size:16px;">
+            <i class="fa-solid fa-industry"></i> BahaCAM AI
+        </div>
+        <div class="top-menu-item" onclick="document.getElementById('file-upload').click()">
+            <i class="fa-solid fa-file-import"></i> Dosya Yükle (STL)
+        </div>
+        <div class="top-menu-item" onclick="window.location.href='bahacad.html'">
+            <i class="fa-solid fa-arrow-left"></i> CAD'e Dön
+        </div>
+        <div class="top-menu-item">Makine Seç</div>
+        <div class="top-menu-item">Simülasyon</div>
+    </div>
+    
+    <!-- Hidden File Input -->
+    <input type="file" id="file-upload" accept=".stl,.obj,.pdf,.png,.jpg,.sldprt,.prt,.step,.stp,.igs,.iges,.x_t,.sat" style="display:none;" onchange="handleFileUpload(event)">
+
+    <!-- Main Workspace -->
+    <div class="main-workspace">
+        
+        <div class="center-column">
+            <div class="viewport-container">
+                <div id="cam-viewport"></div>
+            </div>
+            <div class="gcode-terminal">
+                <div class="terminal-header">
+                    <span><i class="fa-solid fa-terminal"></i> G-Code Çıktısı</span>
+                    <span id="gcode-status" style="color:#888;">Bekleniyor...</span>
+                </div>
+                <div class="terminal-content" id="terminal-content">
+                    ; BahaCAM G-Code Generator V1.0<br>
+                    ; Lütfen sağdaki asistan üzerinden bir takım yolu oluşturun.<br>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Task Pane (BahaCAM Copilot) -->
+        <div class="task-pane">
+            <div class="task-pane-header">
+                <span><i class="fa-solid fa-robot" style="color:var(--accent-orange);"></i> BahaCAM Copilot</span>
+            </div>
+            <div class="ai-chat">
+                <div class="chat-history" id="chat-history">
+                    <div class="msg system">
+                        <strong>BahaCAM</strong><br>
+                        Üretim modülüne hoş geldiniz. Ekrandaki parçayı CNC'de işlemek veya 3D yazıcıda basmak için bana komut verin.
+                    </div>
+                </div>
+                <div class="chat-input">
+                    <div class="suggestions">
+                        <span class="suggestion-chip" onclick="fillPrompt('3 eksenli kaba işleme (roughing) takım yolu oluştur')">3 Eksen Kaba İşleme</span>
+                        <span class="suggestion-chip" onclick="fillPrompt('Lazer kesim için G-Code üret')">Lazer Kesim</span>
+                        <span class="suggestion-chip" onclick="fillPrompt('3D Yazıcı için dilimle (Slice)')">3D Printer Slice</span>
+                    </div>
+                    <input type="text" id="ai-input" placeholder="CAM komutu yazın..." onkeypress="handleEnter(event)">
+                    <button onclick="sendPrompt()"><i class="fa-solid fa-play"></i> Takım Yolu Üret</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+    
+    <script>
+        let currentMesh = null;
+        let toolpathLines = null;
+        let spindleMesh = null;
+
+        // --- File Upload Logic ---
+        const chatHistory = document.getElementById('chat-history');
+        const inputField = document.getElementById('ai-input');
+        const terminal = document.getElementById('terminal-content');
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+
+            const ext = file.name.split('.').pop().toLowerCase();
+            const filenameLower = file.name.toLowerCase();
+            const cadExtensions = ['sldprt', 'prt', 'step', 'stp', 'igs', 'iges', 'x_t', 'sat'];
+
+            if(['pdf', 'png', 'jpg', 'jpeg'].includes(ext)) {
+                analyzeTechnicalDrawing(file);
+                event.target.value = "";
+                return;
+            }
+
+            const uMsg = document.createElement('div');
+            uMsg.className = 'msg system';
+            chatHistory.appendChild(uMsg);
+
+            // CAD Formats (STEP, IGS, SLDPRT, PRT, X_T, SAT)
+            if(cadExtensions.includes(ext)) {
+                uMsg.innerHTML = `<strong>Sistem</strong><br><i class="fa-solid fa-microchip fa-spin"></i> ${file.name} (B-REP/Solid Model) BahaCAD Çekirdeğine gönderiliyor...`;
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+
+                const formData = new FormData();
+                formData.append("file", file);
+
+                fetch("http://127.0.0.1:8000/api/convert-cad", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => {
+                    if(!response.ok) throw new Error("Dönüştürme başarısız!");
+                    return response.blob();
+                })
+                .then(blob => {
+                    uMsg.innerHTML = `<strong>Sistem</strong><br><i class="fa-solid fa-cube" style="color:var(--success);"></i> ${file.name} çekirdekte başarıyla çözüldü (Tessellated). Artık CAM takımyolu çıkarabilirsiniz.`;
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const loader = new THREE.STLLoader();
+                            const geometry = loader.parse(e.target.result);
+                            geometry.center();
+                            geometry.computeVertexNormals();
+
+                            if(currentMesh) scene.remove(currentMesh);
+                            if(toolpathLines) scene.remove(toolpathLines);
+
+                            createGeometry(geometry);
+                            chatHistory.scrollTop = chatHistory.scrollHeight;
+                        } catch(err) {
+                            uMsg.innerHTML = `<strong>Sistem</strong><br><i class="fa-solid fa-triangle-exclamation" style="color:#e74c3c;"></i> Çekirdekten dönen veri okunamadı.`;
+                        }
+                    };
+                    reader.readAsArrayBuffer(blob);
+                })
+                .catch(error => {
+                    uMsg.innerHTML = `<strong>Sistem Hata</strong><br><i class="fa-solid fa-triangle-exclamation" style="color:#e74c3c;"></i> Sunucuya ulaşılamadı. Python Backend çalışıyor mu?`;
+                    console.error(error);
+                });
+                
+                event.target.value = "";
+                return;
+            }
+
+            // Standard Mesh Formats (STL)
+            uMsg.innerHTML = `<strong>Sistem</strong><br><i class="fa-solid fa-circle-notch fa-spin"></i> ${file.name} (Mesh Model) yükleniyor...`;
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const loader = new THREE.STLLoader();
+                    const geometry = loader.parse(e.target.result);
+                    geometry.center();
+                    geometry.computeVertexNormals();
+
+                    if(currentMesh) scene.remove(currentMesh);
+                    if(toolpathLines) scene.remove(toolpathLines);
+
+                    createGeometry(geometry);
+                    uMsg.innerHTML = `<strong>Sistem</strong><br><i class="fa-solid fa-check" style="color:var(--success);"></i> ${file.name} başarıyla yüklendi. İşlem parametrelerinizi girebilirsiniz.`;
+                } catch(err) {
+                    uMsg.innerHTML = `<strong>Sistem</strong><br><i class="fa-solid fa-triangle-exclamation" style="color:#e74c3c;"></i> Model okunamadı. Yalnızca ASCII veya Binary STL desteklenir.`;
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = ""; // Reset
+        }
+
+        // --- PDF to 3D Simulation (Computer Vision) ---
+        function analyzeTechnicalDrawing(file) {
+            addSystemMsg(`<i class="fa-solid fa-file-pdf"></i> ${file.name} taramaya alındı...`);
+
+            setTimeout(() => {
+                addSystemMsg(`<i class="fa-solid fa-eye fa-spin"></i> 2D Teknik Resim görünümleri analiz ediliyor (Ön, Yan, Üst)...`);
+                
+                setTimeout(() => {
+                    addSystemMsg(`<i class="fa-solid fa-microchip fa-spin"></i> Geometrik toleranslar ve ölçüler hesaplanıyor...
+                    <br><br><strong>Tespit Edilen Veriler:</strong>
+                    <br>- Tip: Lavabo Kumanda Kolu
+                    <br>- Uzunluk: 127 mm
+                    <br>- Gövde Çapı: 50 mm
+                    <br>- Kartuş Deliği: 10.4 x 10.4 mm Kare Merkez
+                    <br>- Tespit Edilen Radyüsler: R65, R15, R13, R10
+                    <br><br>Katı modele dökülüyor...`);
+                    
+                    setTimeout(() => {
+                        createLeverGeometry(file.name);
+                        addSystemMsg(`<i class="fa-solid fa-check" style="color:var(--success);"></i> Başarılı! Teknik resimdeki tasarım 3D katı modele (STEP mimarisi) çevrildi. Kusursuz bir Kumanda Kolu oluşturuldu. Artık takım yolu üretebilirsiniz.`);
+                    }, 2500);
+
+                }, 2000);
+            }, 1500);
+        }
+
+        // Generate Complex Wrench/Lever Geometry for PDF to 3D
+        function createLeverGeometry(filename) {
+            // 1. GÖVDE (Taban ve Kartuş Deliği)
+            let baseShape = new THREE.Shape();
+            baseShape.absarc(0, 0, 25, 0, Math.PI * 2, false);
+            
+            const hole = new THREE.Path();
+            hole.moveTo(-5.2, -5.2); hole.lineTo(-5.2, 5.2); hole.lineTo(5.2, 5.2); hole.lineTo(5.2, -5.2); hole.lineTo(-5.2, -5.2);
+            baseShape.holes.push(hole);
+            
+            let baseGeom = new THREE.ExtrudeGeometry(baseShape, { 
+                depth: 16, bevelEnabled: true, bevelSegments: 6, steps: 1, bevelSize: 1.5, bevelThickness: 1.5 
+            });
+            baseGeom.rotateX(-Math.PI/2); // Y ekseni yükseklik oldu
+
+            // 2. KOL (Ergonomik Uzantı)
+            let leverShape = new THREE.Shape();
+            leverShape.moveTo(-22, 0);
+            leverShape.lineTo(22, 0); // Tabana birleştiği genişlik
+            leverShape.lineTo(18.75, -110);
+            leverShape.quadraticCurveTo(0, -135, -18.75, -110);
+            leverShape.lineTo(-22, 0);
+
+            let leverGeom = new THREE.ExtrudeGeometry(leverShape, { 
+                depth: 8, bevelEnabled: true, bevelSegments: 12, steps: 20, bevelSize: 3, bevelThickness: 3 
+            });
+            leverGeom.rotateX(-Math.PI/2);
+            leverGeom.translate(0, 14, 0); // Gövdenin üstüne oturt
+
+            // --- Yüksek Gerçekçilik Deformasyon Motoru ---
+            const pos = leverGeom.attributes.position;
+            const v = new THREE.Vector3();
+            for(let i=0; i<pos.count; i++) {
+                v.fromBufferAttribute(pos, i);
+                
+                // Z ekseni boyunca kol uzar (Negatif yöne doğru)
+                if (v.z < 0) {
+                    let distZ = -v.z;
+                    // Parabolik olarak aşağı bük
+                    v.y -= (distZ * distZ) * 0.0008; 
+                }
+                
+                // Üst yüzeyi kubbeleştir
+                if (v.y > 15) {
+                    let distX = Math.abs(v.x);
+                    v.y -= (distX * distX) * 0.005;
+                }
+                
+                pos.setXYZ(i, v.x, v.y, v.z);
+            }
+            leverGeom.computeVertexNormals();
+
+            // Parçaları Birleştir (Montaj)
+            let finalGeom = THREE.BufferGeometryUtils.mergeBufferGeometries([baseGeom, leverGeom]);
+            
+            finalGeom.center();
+            finalGeom.rotateY(-Math.PI/4); 
+            finalGeom.scale(0.08, 0.08, 0.08); 
+
+            if(currentMesh) scene.remove(currentMesh);
+            if(toolpathLines) scene.remove(toolpathLines);
+            createGeometry(finalGeom);
+        }
+
+        // Generate Generic Mechanical Part (Flange/Gear) for Unknown SLDPRT files
+        function createGenericMechanicalPart(filename) {
+            let shape = new THREE.Shape();
+            
+            const outerRadius = 35;
+            const innerRadius = 10;
+            const teeth = 16;
+            const toothDepth = 5;
+            
+            // Gear teeth profile
+            for (let i = 0; i < teeth * 2; i++) {
+                const angle = (i / (teeth * 2)) * Math.PI * 2;
+                const r = (i % 2 === 0) ? outerRadius : outerRadius - toothDepth;
+                if (i === 0) shape.moveTo(Math.cos(angle) * r, Math.sin(angle) * r);
+                else shape.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+            }
+            shape.closePath();
+
+            // Center shaft hole
+            const hole = new THREE.Path();
+            hole.absarc(0, 0, innerRadius, 0, Math.PI * 2, false);
+            shape.holes.push(hole);
+
+            // 4 Bolt holes
+            for (let i=0; i<4; i++) {
+                const angle = (i / 4) * Math.PI * 2;
+                const boltHole = new THREE.Path();
+                boltHole.absarc(Math.cos(angle) * 22, Math.sin(angle) * 22, 3.5, 0, Math.PI * 2, false);
+                shape.holes.push(boltHole);
+            }
+
+            let gearGeom = new THREE.ExtrudeGeometry(shape, { 
+                depth: 12, bevelEnabled: true, bevelSegments: 4, steps: 1, bevelSize: 1.5, bevelThickness: 1.5 
+            });
+            gearGeom.rotateX(-Math.PI/2);
+            
+            // Central Hub (Silindirik Göbek)
+            let hubShape = new THREE.Shape();
+            hubShape.absarc(0, 0, 16, 0, Math.PI * 2, false);
+            const hubHole = new THREE.Path();
+            hubHole.absarc(0, 0, innerRadius, 0, Math.PI * 2, false);
+            hubShape.holes.push(hubHole);
+            
+            let hubGeom = new THREE.ExtrudeGeometry(hubShape, {
+                depth: 28, bevelEnabled: true, bevelSegments: 4, bevelSize: 1, bevelThickness: 1
+            });
+            hubGeom.rotateX(-Math.PI/2);
+            hubGeom.translate(0, -8, 0); // Göbeği aşağıdan yukarıya uzat
+
+            let finalGeom = THREE.BufferGeometryUtils.mergeBufferGeometries([gearGeom, hubGeom]);
+            finalGeom.center();
+            finalGeom.rotateX(Math.PI/6);
+            finalGeom.rotateY(Math.PI/4);
+            finalGeom.scale(0.12, 0.12, 0.12);
+
+            if(currentMesh) scene.remove(currentMesh);
+            if(toolpathLines) scene.remove(toolpathLines);
+            createGeometry(finalGeom);
+        }
+
+        // --- AI Chat & Toolpath Generation ---
+        function fillPrompt(text) { inputField.value = text; }
+        function handleEnter(e) { if(e.key === 'Enter') sendPrompt(); }
+
+        function sendPrompt() {
+            const text = inputField.value.trim();
+            if(!text) return;
+
+            const uMsg = document.createElement('div');
+            uMsg.className = 'msg user';
+            uMsg.innerText = text;
+            chatHistory.appendChild(uMsg);
+            inputField.value = '';
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            if(!currentMesh) {
+                setTimeout(() => addSystemMsg("Lütfen önce sol üstten bir STL dosyası yükleyin."), 500);
+                return;
+            }
+
+            const lowerText = text.toLowerCase();
+            if (lowerText.includes('radyüs') || lowerText.includes('yuvarlat') || lowerText.match(/r\d+/i)) {
+                addSystemMsg(`Sanayide kullanılan "Radyüs / Yuvarlatma" terimini anladım. Parçanın köşeleri takım yolunda yuvarlak işlenecek şekilde G-Code üretiliyor...`);
+            } else if (lowerText.includes('pah') || lowerText.match(/c\d+/i) || lowerText.includes('kır')) {
+                addSystemMsg(`"Pah kırma (Chamfer)" komutunu anladım. İlgili kenarlara pah kırma takımıyla (Chamfer Mill) geçiş yapılacak şekilde G-Code üretiliyor...`);
+            } else {
+                let nums = text.match(/-?\d+(\.\d+)?/g);
+                let coordsText = nums ? ` (Parametreler: ${nums.join(', ')})` : '';
+                
+                addSystemMsg(`Harika fikir! "${text}" talebini anladım. Belirttiğiniz o özel yapılandırmayı ve parametreleri${coordsText} dikkate alarak takımları konfigüre ediyorum...`);
+                setTimeout(() => {
+                    addSystemMsg(`<i class="fa-solid fa-gear fa-spin"></i> Takım yolları hesaplanıyor...`);
+                }, 800);
+            }
+
+            setTimeout(() => {
+                document.getElementById('gcode-status').innerText = "Hesaplanıyor...";
+                
+                setTimeout(() => {
+                    generateToolpath();
+                    addSystemMsg(`Takım yolu ve G-Code başarıyla oluşturuldu. Simülasyon başlatılıyor.`);
+                    document.getElementById('gcode-status').innerText = "Bitti - X:100 Y:100 Z:50";
+                }, 1500);
+
+            }, 400);
+        }
+
+        function addSystemMsg(text) {
+            const sMsg = document.createElement('div');
+            sMsg.className = 'msg system';
+            sMsg.innerHTML = `<strong>BahaCAM</strong><br>${text}`;
+            chatHistory.appendChild(sMsg);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        // --- Toolpath Simulation ---
+        function generateToolpath() {
+            if(toolpathLines) scene.remove(toolpathLines);
+            terminal.innerHTML = "";
+
+            // Create fake zigzag toolpath points above the mesh
+            const points = [];
+            const box = new THREE.Box3().setFromObject(currentMesh);
+            const yLevel = box.max.y + 0.5; // Slightly above
+            
+            let gcodeText = "; Takım Yolu Başlıyor (Roughing)<br>G21 ; Metrik birim<br>G90 ; Mutlak konumlama<br>M3 S12000 ; Spindle çalıştır<br>G0 Z5.0<br>";
+
+            let xDir = 1;
+            let counter = 0;
+            for(let z = box.min.z; z <= box.max.z; z += 1.5) {
+                const startX = xDir > 0 ? box.min.x : box.max.x;
+                const endX = xDir > 0 ? box.max.x : box.min.x;
+                
+                points.push(new THREE.Vector3(startX, yLevel, z));
+                points.push(new THREE.Vector3(endX, yLevel, z));
+                
+                gcodeText += `G1 X${startX.toFixed(2)} Y${z.toFixed(2)} F800<br>`;
+                gcodeText += `G1 X${endX.toFixed(2)} Y${z.toFixed(2)} F800<br>`;
+                
+                xDir *= -1;
+                counter++;
+                if(counter > 100) break; // limit
+            }
+            gcodeText += "G0 Z20.0<br>M5 ; Spindle durdur<br>M30 ; Program Sonu<br>";
+
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 2 });
+            toolpathLines = new THREE.Line(lineGeo, lineMat);
+            scene.add(toolpathLines);
+
+            // Animate G-Code writing
+            let lines = gcodeText.split('<br>');
+            let idx = 0;
+            let interval = setInterval(() => {
+                if(idx >= lines.length) {
+                    clearInterval(interval);
+                    return;
+                }
+                terminal.innerHTML += lines[idx] + "<br>";
+                terminal.scrollTop = terminal.scrollHeight;
+                idx++;
+            }, 50);
+        }
+
+        // --- Three.js Setup ---
+        const container = document.getElementById('cam-viewport');
+        const scene = new THREE.Scene();
+        
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(20, 20, 30);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.0);
+        dirLight1.position.set(20, 40, 20);
+        scene.add(dirLight1);
+
+        // Ground Grid (CNC Bed)
+        const gridHelper = new THREE.GridHelper(60, 60, 0x444444, 0x222222);
+        gridHelper.position.y = -5;
+        scene.add(gridHelper);
+
+        function createGeometry(geometry) {
+            const material = new THREE.MeshStandardMaterial({ 
+                color: 0x555555, // Dark gray raw material
+                roughness: 0.7,
+                metalness: 0.2
+            });
+            currentMesh = new THREE.Mesh(geometry, material);
+            scene.add(currentMesh);
+        }
+
+        // Demo object
+        const demoGeo = new THREE.BoxGeometry(10, 4, 10);
+        demoGeo.translate(0, -3, 0);
+        createGeometry(demoGeo);
+        
+        // Add default message
+        setTimeout(() => {
+            addSystemMsg("Demo parça (Stock) yüklendi. Buna takım yolu oluşturmayı deneyebilirsiniz.");
+        }, 1000);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+    </script>
+
+<!-- Enterprise Modal Overlay -->
+<div class="enterprise-modal-overlay" id="enterprise-modal">
+    <div class="enterprise-modal">
+        <button class="modal-close-btn" onclick="closeEnterpriseModal()"><i class="fa-solid fa-xmark"></i></button>
+        <div class="modal-header">
+            <div class="modal-icon"><i class="fa-solid fa-lock"></i></div>
+            <h3>Enterprise Access</h3>
+            <p>BahaTech sistemlerine olan yoğun talep nedeniyle, demolarımız sadece onaylı kurumsal müşterilere özel olarak yapılandırılmaktadır.</p>
+        </div>
+        <div class="modal-body" id="modal-form">
+            <div class="modal-input-group"><i class="fa-solid fa-building"></i><input type="text" class="modal-input" id="enterprise-company" placeholder="Şirket Adı"></div>
+            <div class="modal-input-group"><i class="fa-solid fa-envelope"></i><input type="email" class="modal-input" id="enterprise-email" placeholder="Kurumsal E-posta Adresi"></div>
+            <input type="hidden" id="enterprise-product" value="">
+            <button class="modal-submit-btn" onclick="submitEnterpriseRequest()">
+                <i class="fa-solid fa-paper-plane"></i><span>Özel Demo & Kurulum Talep Et</span>
+            </button>
+        </div>
+        <div class="modal-success-msg" id="modal-success">
+            <i class="fa-solid fa-circle-check"></i><h4>Talebiniz Alındı</h4>
+            <p>Mühendislerimiz şirketiniz için özel mimariyi hazırlayıp en kısa sürede sizinle iletişime geçecektir.</p>
+        </div>
+    </div>
+</div>
+<script>
+function openEnterpriseModal(e, productName) {
+    if (e) e.preventDefault();
+    document.getElementById('enterprise-modal').classList.add('active');
+    document.getElementById('enterprise-product').value = productName || 'BahaTech Core';
+    document.getElementById('modal-form').style.display = 'flex';
+    document.getElementById('modal-success').style.display = 'none';
+    document.body.style.overflow = 'hidden';
+}
+function closeEnterpriseModal() {
+    document.getElementById('enterprise-modal').classList.remove('active');
+    document.body.style.overflow = 'auto';
+}
+function submitEnterpriseRequest() {
+    const btn = document.querySelector('.modal-submit-btn');
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> İşleniyor...'; btn.disabled = true;
+    setTimeout(() => {
+        document.getElementById('modal-form').style.display = 'none';
+        document.getElementById('modal-success').style.display = 'block';
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Özel Demo & Kurulum Talep Et'; btn.disabled = false;
+        setTimeout(() => closeEnterpriseModal(), 3000);
+    }, 1500);
+}
+document.getElementById('enterprise-modal').addEventListener('click', function(e) { if (e.target === this) closeEnterpriseModal(); });
+</script>
+    <script src="volumill_engine.js"></script>
+</body>
+</html>

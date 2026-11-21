@@ -1,0 +1,40 @@
+name: Build BahaForge Pure Rust Windows .exe & Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build Pure Rust Windows x64 GUI .exe (Zero Python)
+        run: cargo build --release
+      - name: Copy & Rename Release Binary
+        shell: pwsh
+        run: |
+          Copy-Item target/release/BahaForge_CAD_CAM_Studio.exe BahaForge_CAD_CAM_Studio_v7_Win64.exe
+          Get-Item BahaForge_CAD_CAM_Studio_v7_Win64.exe | Select-Object Name, Length
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BahaForge_CAD_CAM_Studio_v7_Win64
+          path: BahaForge_CAD_CAM_Studio_v7_Win64.exe
+      - name: Publish GitHub Release v7.0.0 (.exe)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v7.0.0
+          name: BahaForge CAD CAM AI Studio v7.0.0 (Pure Rust Windows .exe)
+          body: |
+            ## BahaForge CAD CAM AI Studio v7.0.0 — %100 Saf Rust (Sıfır Python)
+            - Tek tıkla çalışan bağımsız **Windows 64-bit `.exe`** (kurulum, Python veya Node.js gerekmez)
+            - **Gömülü Yerel Öğrenen Fiyat AI (`BahaForge-Rust-LocalML`)**: İlk PDF'lerden öğrenerek sonraki çizimlerde kendi süre ve fiyatlarını tahmin eder
+            - **Gelen Teklifler (RFQ) + Malzeme (kg/fire) + İşçilik + Teklif Maili & WhatsApp Stüdyosu**
+            - **2D PDF → 3D STEP + BahaCAM VoluMill CNC**
+          files: BahaForge_CAD_CAM_Studio_v7_Win64.exe

@@ -1,0 +1,4 @@
+/target
+bahaforge_ml_memory.jsonl
+.env
+.DS_Store

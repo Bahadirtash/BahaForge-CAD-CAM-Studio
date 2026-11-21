@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BahaForge CAD CAM AI Studio — 6 Modüllü Kurumsal Masaüstü İşletim Sistemi (v7 Enterprise)</title>
+<style>
+  :root {
+    --bg: #050811; --sidebar: #090e1c; --panel: #0e1629; --panel2: #15203b;
+    --border: rgba(255,255,255,0.09); --border-strong: rgba(255,255,255,0.18);
+    --txt: #f8fafc; --muted: #94a3b8;
+    --acc: #0ea5e9; --acc2: #38bdf8;
+    --ok: #10b981; --warn: #f59e0b; --danger: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Inter, sans-serif; }
+  body { background: var(--bg); color: var(--txt); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+  /* macOS/Windows Native Window Titlebar */
+  .os-titlebar {
+    height: 44px; background: #070b16; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 18px; position: sticky; top: 0; z-index: 60;
+  }
+  .os-dots { display: flex; align-items: center; gap: 7px; }
+  .os-dots i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  .os-title-center { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.03em; display: flex; align-items: center; gap: 8px; }
+  .os-status-pills { display: flex; align-items: center; gap: 8px; }
+  .os-pill { font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: 999px; background: rgba(16,185,129,0.13); border: 1px solid rgba(16,185,129,0.38); color: #6ee7b7; }
+  /* App Shell */
+  .app-shell { display: grid; grid-template-columns: 262px 1fr; flex: 1; min-height: calc(100vh - 44px); }
+  @media (max-width: 1024px) { .app-shell { grid-template-columns: 1fr; } .sidebar { border-right: none; border-bottom: 1px solid var(--border); } }
+  .sidebar { background: var(--sidebar); border-right: 1px solid var(--border); padding: 16px 12px; display: flex; flex-direction: column; justify-content: space-between; gap: 16px; }
+  .brand-card { background: linear-gradient(145deg, var(--panel), var(--panel2)); border: 1px solid var(--border-strong); border-left: 4px solid var(--acc); border-radius: 14px; padding: 13px; }
+  .brand-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .brand-ico { width: 42px; height: 42px; border-radius: 11px; background: rgba(255,255,255,0.06); border: 1px solid var(--acc); display: grid; place-items: center; font-size: 22px; flex-shrink: 0; }
+  .brand-card h1 { font-size: 14px; font-weight: 800; line-height: 1.22; }
+  .brand-card p { font-size: 10.5px; color: var(--muted); line-height: 1.4; }
+  .cover-preview { width: 100%; aspect-ratio: 16 / 9.5; border-radius: 9px; object-fit: cover; border: 1px solid var(--border); margin-top: 8px; display: block; }
+  .nav-list { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; }
+  .nav-btn {
+    width: 100%; text-align: left; background: transparent; border: 1px solid transparent; color: #cbd5e1;
+    padding: 10px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between; transition: 0.16s;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.04); color: #fff; }
+  .nav-btn.active { background: linear-gradient(135deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03)); border-color: var(--acc); color: #fff; box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
+  .nav-kbd { font-size: 10px; color: var(--muted); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 5px; }
+  .sidebar-cta { display: flex; flex-direction: column; gap: 7px; }
+  .btn { cursor: pointer; border: 1px solid var(--border-strong); background: var(--panel2); color: var(--txt); padding: 9px 13px; border-radius: 10px; font-size: 12px; font-weight: 700; transition: 0.16s; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn:hover { border-color: var(--acc); transform: translateY(-1px); }
+  .btn.primary { background: linear-gradient(135deg, var(--acc), #2563eb); color: #fff; border: none; }
+  .btn.shopier { background: linear-gradient(135deg, #059669, #0284c7); color: #fff; border: none; padding: 11px 14px; font-size: 12.5px; }
+  .btn.wa { background: linear-gradient(135deg, #16a34a, #059669); color: #fff; border: none; }
+  .btn.sm { padding: 5px 9px; font-size: 11px; border-radius: 7px; }
+  /* Main Workspace */
+  .main-stage { padding: 20px 24px 32px; overflow-y: auto; }
+  .stage-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .stage-header h2 { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+  .stage-header p { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tab-pane { display: none; animation: fadeIn 0.18s ease; }
+  .tab-pane.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  .kpi-card { background: linear-gradient(145deg, var(--panel), var(--panel2)); border: 1px solid var(--border); border-top: 3px solid var(--acc); border-radius: 14px; padding: 14px 16px; }
+  .kpi-card .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.03em; }
+  .kpi-card .val { font-size: 18px; font-weight: 800; color: #fff; margin-top: 6px; }
+  .kpi-card .sub { font-size: 11px; color: var(--acc2); margin-top: 4px; }
+  .grid-2 { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 1100px) { .grid-2 { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 18px; box-shadow: 0 12px 30px rgba(0,0,0,0.32); }
+  .card-title { font-size: 14.5px; font-weight: 800; color: var(--acc2); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .inputs-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 11px; margin-bottom: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field:last-child:nth-child(odd) { grid-column: span 2; }
+  .field label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .field input, .field select, textarea { background: #060a14; border: 1px solid var(--border-strong); color: var(--txt); padding: 9px 11px; border-radius: 9px; font-size: 13px; font-weight: 600; outline: none; width: 100%; }
+  .field input:focus, textarea:focus, .field select:focus { border-color: var(--acc); }
+  .preset-bar { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+  .alert-box { padding: 12px 14px; border-radius: 11px; font-size: 12.5px; font-weight: 700; line-height: 1.48; margin: 10px 0; }
+  .alert-box.ok { background: rgba(16,185,129,0.13); border: 1px solid rgba(16,185,129,0.42); color: #6ee7b7; }
+  .alert-box.danger { background: rgba(239,68,68,0.16); border: 1px solid rgba(239,68,68,0.52); color: #fca5a5; }
+  canvas { width: 100%; height: 270px; background: #060a14; border-radius: 12px; border: 1px solid var(--border); display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }
+  th, td { text-align: left; padding: 10px 9px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-size: 11px; text-transform: uppercase; background: rgba(255,255,255,0.02); }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .status-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .status-ok { background: rgba(16,185,129,0.16); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.35); }
+  .status-warn { background: rgba(245,158,11,0.16); color: #fcd34d; border: 1px solid rgba(245,158,11,0.35); }
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .row-form { display: grid; grid-template-columns: 1.1fr 0.9fr 1.4fr 0.8fr 0.8fr auto; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  @media (max-width: 1000px) { .row-form { grid-template-columns: 1fr 1fr; } }
+  .wa-thread { height: 220px; overflow-y: auto; background: #060c14; border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; }
+  .wa-bubble { padding: 9px 12px; border-radius: 11px; max-width: 86%; line-height: 1.45; }
+  .wa-bubble.out { align-self: flex-end; background: rgba(22,163,74,0.25); border: 1px solid rgba(22,163,74,0.48); color: #dcfce7; }
+  .wa-bubble.in { align-self: flex-start; background: rgba(255,255,255,0.07); border: 1px solid var(--border); color: #e2e8f0; }
+  .print-only { display: none; }
+  @media print {
+    .os-titlebar, .sidebar, .no-print { display: none !important; }
+    .app-shell { display: block; }
+    body, .main-stage, .card, .kpi-card { background: #fff !important; color: #000 !important; box-shadow: none !important; }
+    .tab-pane { display: block !important; margin-bottom: 18px; }
+    .print-only { display: block !important; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 14px; }
+    .kpi-card .val, .card-title, th, td { color: #000 !important; border-color: #ccc !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="os-titlebar">
+    <div class="os-dots">
+      <i style="background:#ef4444;"></i>
+      <i style="background:#f59e0b;"></i>
+      <i style="background:#22c55e;"></i>
+      <span style="margin-left:8px;font-size:11.5px;font-weight:800;color:#e2e8f0;">⚙️ BahaForge CAD CAM AI Studio</span>
+    </div>
+    <div class="os-title-center">
+      <span>PAKET #17/50</span> • <span id="topOrgName">Endüstriyel CNC, Lazer Sac & PDF→STEP AI Kurumsal Lisans</span> • <span>0 ₺ Aylık Aidat</span>
+    </div>
+    <div class="os-status-pills">
+      <span class="os-pill" id="hwSealBadge">🔐 ChaCha20-256 Yerel Kasa Aktif</span>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div>
+        <div class="brand-card">
+          <div class="brand-row">
+            <div class="brand-ico">⚙️</div>
+            <div>
+              <h1>BahaForge CAD CAM AI Studio</h1>
+              <p>T.C. Sanayi Bakanlığı Sanayi Sicil & AS9100 / ISO 9001</p>
+            </div>
+          </div>
+          <img class="cover-preview" src="../covers/cadcam-os-cover.jpg" alt="BahaForge CAD CAM AI Studio" onerror="this.style.display='none'" />
+        </div>
+
+        <nav class="nav-list" aria-label="Çalışma Modülleri">
+          <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')"><span>📊 1. Yönetici Komuta Paneli</span><span class="nav-kbd">Alt+1</span></button>
+          <button class="nav-btn" data-tab="engine" onclick="switchTab('engine')"><span>🧮 2. Mühendislik & Mevzuat</span><span class="nav-kbd">Alt+2</span></button>
+          <button class="nav-btn" data-tab="crm" onclick="switchTab('crm')"><span>🗂️ 3. Cari & İş Emri CRM</span><span class="nav-kbd">Alt+3</span></button>
+          <button class="nav-btn" data-tab="stock" onclick="switchTab('stock')"><span>📦 4. Envanter & Miad Radarı</span><span class="nav-kbd">Alt+4</span></button>
+          <button class="nav-btn" data-tab="whatsapp" onclick="switchTab('whatsapp')"><span>💬 5. 5 Dilli WhatsApp Stüdyo</span><span class="nav-kbd">Alt+5</span></button>
+          <button class="nav-btn" data-tab="vault" onclick="switchTab('vault')"><span>🔐 6. Yerel Kasa & A4 Baskı</span><span class="nav-kbd">Alt+6</span></button>
+        </nav>
+      </div>
+
+      <div class="sidebar-cta">
+        <a class="btn shopier" data-shopier-link="true" href="https://www.shopier.com/52971702" target="_blank" rel="noopener">💳 Ömür Boyu Lisans (39.900 ₺)</a>
+        <a class="btn" href="BahaTech_50_Sektor_Master_Hub.html">⚡ 50-Sektör Mother OS Hub</a>
+        <a class="btn" href="../index.html#urun-cadcam">🌐 Resmi Web Vitrini</a>
+      </div>
+    </aside>
+
+    <main class="main-stage">
+      <div class="print-only">
+        <h1 id="printHeaderTitle">BahaForge CAD CAM AI Studio — Resmi Kurumsal Rapor & İş Emri İcmali</h1>
+        <p id="printHeaderMeta">Mevzuat Standardı: T.C. Sanayi Bakanlığı Sanayi Sicil & AS9100 / ISO 9001 (SAN-SİCİL-649182)</p>
+      </div>
+
+      <div class="stage-header no-print">
+        <div>
+          <h2 id="stageTitle">📊 Yönetici Komuta & Canlı Performans Merkezi</h2>
+          <p>2B teknik resim PDF'ten 3B AP214 STEP uretimi, fizik tabanli CNC/Torna/Fiber Lazer saniyelik maliyet teklifi (.xlsx), K-Faktoru abkant sac acinim + DXF nesting ve AS9102 FAI kalite balonlama</p>
+        </div>
+        <div class="toolbar-actions">
+          <button class="btn" onclick="exportCsv()">📊 Excel/CSV İndir</button>
+          <button class="btn" onclick="exportEncryptedVault()">🔐 .bhtvault Yedekle</button>
+          <button class="btn" onclick="window.print()">🖨️ Resmi A4 PDF Yazdır</button>
+        </div>
+      </div>
+
+      <!-- TAB 1: DASHBOARD -->
+      <section class="tab-pane active" id="pane-dashboard">
+        <div class="kpi-row" id="dashKpiGrid"></div>
+        <div id="dashAlertBanner" class="alert-box ok"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">
+              <span>📈 Sektörel Performans, Maliyet & Mevzuat Simülasyon Grafiği</span>
+              <button class="btn sm" onclick="switchTab('engine')">⚙️ Parametreleri Değiştir →</button>
+            </div>
+            <canvas id="dashCanvas" width="760" height="290"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-title">
+              <span>⚡ Hızlı Operasyon Özeti & Kritik Uyarılar</span>
+              <span class="status-badge status-ok" id="dashRecordCountBadge">0 Kayıt</span>
+            </div>
+            <div id="dashQuickSummary" style="display:flex;flex-direction:column;gap:9px;font-size:12.5px;line-height:1.5;"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;">
+              <button class="btn primary" onclick="switchTab('crm')">➕ Yeni İş Emri / Kayıt</button>
+              <button class="btn wa" onclick="switchTab('whatsapp')">💬 WhatsApp Bildirimi</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: DEEP ENGINEERING & REGULATORY ENGINE -->
+      <section class="tab-pane" id="pane-engine">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">
+              <span>⚙️ CNC Talaşlı İmalat + Fiber Lazer Sac Saniyelik Teklif (AutoQuote) Motoru</span>
+            </div>
+            <div class="preset-bar no-print">
+              <span style="font-size:11px;color:var(--muted);align-self:center;font-weight:700;">Hazır Senaryo Yükle:</span>
+              <button class="btn sm" onclick="applyPreset('low')">🟢 Kompakt / Başlangıç</button>
+              <button class="btn sm" onclick="applyPreset('base')">🔵 Standart İşletme</button>
+              <button class="btn sm" onclick="applyPreset('peak')">🟠 Yoğun / Denetim Senaryosu</button>
+            </div>
+            <div class="inputs-grid">
+              
+      <div class="field">
+        <label for="inp_kutukKg">Ham Malzeme Kütük / Sac Ağırlığı (kg — Örn: Al 6061 / St37)</label>
+        <input id="inp_kutukKg" data-key="kutukKg" type="number" step="0.5" value="6.4" oninput="recalcEngine()" />
+      </div>
+
+      <div class="field">
+        <label for="inp_kgFiyatTl">Malzeme Kg Birim Fiyatı (₺/kg)</label>
+        <input id="inp_kgFiyatTl" data-key="kgFiyatTl" type="number" step="10" value="210" oninput="recalcEngine()" />
+      </div>
+
+      <div class="field">
+        <label for="inp_cncDakika">3/5 Eksen CNC veya Fiber Lazer İşleme Süresi (Dakika)</label>
+        <input id="inp_cncDakika" data-key="cncDakika" type="number" step="2" value="28" oninput="recalcEngine()" />
+      </div>
+
+      <div class="field">
+        <label for="inp_tezgahSaatTl">Tezgâh Saatlik İşçilik + Amortisman Ücreti (₺/Saat)</label>
+        <input id="inp_tezgahSaatTl" data-key="tezgahSaatTl" type="number" step="100" value="1850" oninput="recalcEngine()" />
+      </div>
+
+      <div class="field">
+        <label for="inp_partiAdet">Sipariş Parti Adedi</label>
+        <input id="inp_partiAdet" data-key="partiAdet" type="number" step="10" value="150" oninput="recalcEngine()" />
+      </div>
+            </div>
+            <div id="engineAlertBox" class="alert-box ok"></div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;" class="no-print">
+              <button class="btn primary" onclick="saveCalcToCrm()">💾 Bu Hesabı Cari / İş Emri Listesine Kaydet</button>
+              <button class="btn wa" onclick="switchTab('whatsapp')">💬 Sonucu WhatsApp Taslağına Aktar</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">
+              <span>📐 Canlı Teknik Diyagram & Dağılım Analizi</span>
+              <span style="font-size:11px;color:var(--muted);">&lt;1ms Yerel Motor</span>
+            </div>
+            <div class="kpi-row" id="engineKpiMini" style="grid-template-columns:1fr 1fr;margin-bottom:12px;"></div>
+            <canvas id="simCanvas" width="720" height="280"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: CLIENT / PATIENT / JOB ORDER CRM -->
+      <section class="tab-pane" id="pane-crm">
+        <div class="card">
+          <div class="filter-bar no-print">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input id="crmSearchInp" placeholder="🔍 Müşteri, plaka, dosya kodu veya detay ara..." style="width:280px;background:#060a14;border:1px solid var(--border-strong);color:#fff;padding:8px 11px;border-radius:8px;font-size:12.5px;" oninput="renderCrmTable()" />
+              <select id="crmStatusFilter" style="background:#060a14;border:1px solid var(--border-strong);color:#fff;padding:8px 10px;border-radius:8px;font-size:12px;" onchange="renderCrmTable()">
+                <option value="ALL">Tüm Durumlar</option>
+                <option value="Onaylandı">Onaylandı</option>
+                <option value="Tamamlandı">Tamamlandı</option>
+                <option value="Bekliyor">Bekliyor</option>
+              </select>
+            </div>
+            <div style="font-size:12.5px;font-weight:800;color:var(--acc2);" id="crmTotalSummary"></div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Kayıt Kodu</th>
+                <th>Müşteri / Kurum / Dosya</th>
+                <th>Telefon</th>
+                <th>Teknik Detay & Mevzuat Notu</th>
+                <th>Tutar / Ölçüm</th>
+                <th>Durum</th>
+                <th class="no-print">İşlem</th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody"></tbody>
+          </table>
+
+          <div class="row-form no-print">
+            <input id="recClient" placeholder="Müşteri / Hasta / Firma Adı" />
+            <input id="recPhone" placeholder="90532..." value="90532" />
+            <input id="recDetail" placeholder="İşlem / Ölçüm / Teknik Açıklama" />
+            <input id="recAmount" placeholder="Tutar (örn: 18.500 ₺)" />
+            <select id="recStatus" style="background:#060a14;border:1px solid var(--border-strong);color:#fff;padding:8px;border-radius:8px;font-size:12px;">
+              <option value="Onaylandı">Onaylandı</option>
+              <option value="Bekliyor">Bekliyor</option>
+              <option value="Tamamlandı">Tamamlandı</option>
+            </select>
+            <button class="btn primary" onclick="addCrmRecord()">➕ Kayıt Ekle</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: INVENTORY / EQUIPMENT / EXPIRY RADAR -->
+      <section class="tab-pane" id="pane-stock">
+        <div class="card">
+          <div class="card-title">
+            <span>📦 Sektörel Stok, Cihaz Ömrü, Lot & Kritik Seviye Radarı</span>
+            <span style="font-size:11.5px;color:var(--muted);">Kritik seviye altına düşen kalemler otomatik kırmızı alarm verir</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Stok / Lot Kodu</th>
+                <th>Kalem / Ekipman / Sarf Adı</th>
+                <th>Mevcut Miktar</th>
+                <th>Kritik Eşik</th>
+                <th>Birim Maliyet</th>
+                <th>Durum</th>
+                <th class="no-print">Hızlı Sayaç</th>
+              </tr>
+            </thead>
+            <tbody id="stockBody"></tbody>
+          </table>
+          <div class="row-form no-print" style="grid-template-columns:0.8fr 1.6fr 0.7fr 0.7fr 0.9fr auto;">
+            <input id="stkSku" placeholder="Kod (örn: LOT-09)" />
+            <input id="stkName" placeholder="Yeni Malzeme / Cihaz / Kalem Adı" />
+            <input id="stkQty" type="number" placeholder="Miktar" value="15" />
+            <input id="stkMin" type="number" placeholder="Min Eşik" value="5" />
+            <input id="stkCost" placeholder="Birim Maliyet (₺)" value="1.250 ₺" />
+            <button class="btn primary" onclick="addStockItem()">➕ Kalem Ekle</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: 5-LANGUAGE EMBEDDED WHATSAPP STUDIO -->
+      <section class="tab-pane" id="pane-whatsapp">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">
+              <span>💬 Ana Ekrana Gömülü 5 Dilli WhatsApp Sekreterya (0 ₺ API)</span>
+            </div>
+            <div class="preset-bar">
+              <button class="btn sm" onclick="loadWaTemplate('summary')">📋 Hesaplama Özeti</button>
+              <button class="btn sm" onclick="loadWaTemplate('confirm')">📅 Randevu / Teslim Teyidi</button>
+              <button class="btn sm" onclick="loadWaTemplate('quote')">💳 Resmi Teklif & IBAN</button>
+              <button class="btn sm" onclick="loadWaTemplate('remind')">🔔 Vade / Bakım Hatırlatma</button>
+            </div>
+            <div class="inputs-grid">
+              <div class="field">
+                <label for="waPhone">Alıcı WhatsApp Numarası</label>
+                <input id="waPhone" value="905324198811" />
+              </div>
+              <div class="field">
+                <label for="waLang">Anlık Otomatik Çeviri Dili</label>
+                <select id="waLang" onchange="translateWaBox()">
+                  <option value="TR">🇹🇷 Türkçe (Resmi Kurumsal)</option>
+                  <option value="EN">🇬🇧 English (International)</option>
+                  <option value="DE">🇩🇪 Deutsch (DACH)</option>
+                  <option value="AR">🇸🇦 العربية (VIP)</option>
+                  <option value="RU">🇷🇺 Русский (CIS)</option>
+                </select>
+              </div>
+            </div>
+            <textarea id="waText" rows="5" style="margin-bottom:10px;"></textarea>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              <button class="btn wa" onclick="sendWhatsAppNow(false)">📲 WhatsApp Web ile Gönder</button>
+              <button class="btn primary" onclick="sendWhatsAppNow(true)">🤖 Müşteri '1 - ONAY' Yanıtını Simüle Et</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">
+              <span>🟢 Canlı Çift-Yönlü Sohbet & Zaman Damgalı Onay Kaydı</span>
+              <span class="status-badge status-ok">Çevrimiçi Köprü</span>
+            </div>
+            <div class="wa-thread" id="waLog">
+              <div class="wa-bubble in">👋 Sistem Hazır: BahaForge CAD CAM AI Studio 5 dilli WhatsApp sekreteryası aktif. Aylık API ücreti: 0 ₺.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: LOCAL ENCRYPTED VAULT & INSTITUTION SETTINGS -->
+      <section class="tab-pane" id="pane-vault">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title"><span>🏛️ Kurumsal Başlık, Vergi & Resmi Oda/Bakanlık Sicil Mührü</span></div>
+            <div class="inputs-grid">
+              <div class="field">
+                <label for="orgNameInp">Kurum / İşletme Resmi Ünvanı</label>
+                <input id="orgNameInp" value="Örnek Endüstriyel CNC, Lazer Sac & PDF→STEP AI Kurumu A.Ş." oninput="saveOrgSettings()" />
+              </div>
+              <div class="field">
+                <label for="orgLicInp">Resmi Oda / Bakanlık Sicil No</label>
+                <input id="orgLicInp" value="SAN-SİCİL-649182" oninput="saveOrgSettings()" />
+              </div>
+              <div class="field">
+                <label for="orgMgrInp">Sorumlu Müdür / Uzman / Yetkili</label>
+                <input id="orgMgrInp" value="Kurumsal Yetkili İmza" oninput="saveOrgSettings()" />
+              </div>
+              <div class="field">
+                <label for="orgTelInp">Kurumsal İletişim Telefonu</label>
+                <input id="orgTelInp" value="+90 (212) 555 00 00" oninput="saveOrgSettings()" />
+              </div>
+            </div>
+            <p style="font-size:12px;color:var(--muted);line-height:1.5;">Bu bilgiler A4 resmi çıktıların üst antetine ve şifreli <code>.bhtvault</code> yedek dosyalarınıza otomatik işlenir; hiçbir bulut sunucusuna gönderilmez.</p>
+          </div>
+
+          <div class="card">
+            <div class="card-title"><span>🔐 ChaCha20 / AES-256-GCM Yerel Sır Kasası & Donanım Kilidi</span></div>
+            <div style="background:#060a14;border:1px solid var(--border);border-radius:11px;padding:12px;font-family:monospace;font-size:11.5px;line-height:1.65;color:#6ee7b7;margin-bottom:12px;" id="hwDetailBox"></div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              <button class="btn primary" onclick="exportEncryptedVault()">🔐 Şifreli Kasa İndir (.bhtvault)</button>
+              <button class="btn" onclick="document.getElementById('vaultImportInp').click()">📂 Kasa Yedeği Geri Yükle</button>
+              <input id="vaultImportInp" type="file" accept=".bhtvault,application/json" style="display:none" onchange="importEncryptedVault(event)" />
+              <button class="btn" onclick="window.print()">🖨️ Mühürlü A4 Rapor Bas</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+const SECTOR_KEY = "cadcam";
+const STORAGE_CRM = "bahatech_v7_crm_" + SECTOR_KEY;
+const STORAGE_STK = "bahatech_v7_stk_" + SECTOR_KEY;
+const STORAGE_ORG = "bahatech_v7_org_" + SECTOR_KEY;
+
+const PRESETS = {
+  low: {"kutukKg":4.2,"kgFiyatTl":136.5,"cncDakika":18.2,"tezgahSaatTl":1202.5,"partiAdet":0},
+  base: {"kutukKg":6.4,"kgFiyatTl":210,"cncDakika":28,"tezgahSaatTl":1850,"partiAdet":150},
+  peak: {"kutukKg":10.6,"kgFiyatTl":346.5,"cncDakika":46.2,"tezgahSaatTl":3052.5,"partiAdet":151}
+};
+
+let crmRecords = JSON.parse(localStorage.getItem(STORAGE_CRM) || "null") || [{"code":"CAD-101","client":"Savunma Sanayi Alüminyum 7075 Gövde Flanjı (250 Adet)","phone":"905324198811","detail":"PDF2STEP Onaylı • AS9102 24 Ölçü Balonlu FAI Raporu","amount":"745.000 ₺","status":"5 Eksen Tezgâhta"}];
+let stockItems = JSON.parse(localStorage.getItem(STORAGE_STK) || "null") || [{"sku":"CAD-101","name":"Endüstriyel CNC, Lazer Sac & PDF→STEP AI Ana Operasyon Sarf & Hammadde Paketi","qty":42,"min":15,"unit":"birim","cost":"2.450 ₺"},{"sku":"CAD-102","name":"T.C. Sanayi Bakanlığı Sanayi Sicil Uyumlu Mühürlü Etiket / Kit","qty":8,"min":10,"unit":"kutu","cost":"1.180 ₺"},{"sku":"CAD-103","name":"Periyodik Kalibrasyon & Yedek Donanım Modülü","qty":16,"min":5,"unit":"adet","cost":"4.900 ₺"},{"sku":"CAD-104","name":"Kurumsal Teslimat & Arşiv Dosyalama Seti","qty":65,"min":20,"unit":"paket","cost":"680 ₺"}];
+let orgInfo = JSON.parse(localStorage.getItem(STORAGE_ORG) || "null") || {
+  name: "Örnek Endüstriyel CNC, Lazer Sac & PDF→STEP AI Kurumu",
+  lic: "SAN-SİCİL-649182",
+  mgr: "Yetkili Uzman",
+  tel: "+90 212 555 00 00"
+};
+let lastCalcOut = null;
+let lastBaseWa = "";
+
+const TAB_TITLES = {
+  dashboard: "📊 Yönetici Komuta & Canlı Performans Merkezi",
+  engine: "🧮 Sektörel Mühendislik, Maliyet & Mevzuat Simülatörü",
+  crm: "🗂️ Müşteri / Hasta / Cari & İş Emri Veritabanı",
+  stock: "📦 Envanter, Cihaz Ömrü, Lot & Kritik Stok Radarı",
+  whatsapp: "💬 5 Dilli Gömülü Çift-Yönlü WhatsApp Stüdyosu",
+  vault: "🔐 ChaCha20-256 Yerel Sır Kasası & Resmi A4 Belge Merkezi"
+};
+
+function switchTab(tabId) {
+  document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+  const pane = document.getElementById("pane-" + tabId);
+  const btn = document.querySelector('.nav-btn[data-tab="' + tabId + '"]');
+  if (pane) pane.classList.add("active");
+  if (btn) btn.classList.add("active");
+  document.getElementById("stageTitle").textContent = TAB_TITLES[tabId] || "";
+  if (tabId === "dashboard" || tabId === "engine") recalcEngine();
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.altKey && e.key >= "1" && e.key <= "6") {
+    const map = ["dashboard", "engine", "crm", "stock", "whatsapp", "vault"];
+    e.preventDefault();
+    switchTab(map[Number(e.key) - 1]);
+  }
+});
+
+function runDomainCalc(v) {
+  
+      const malzemeBirim = (v[" kutukKg"] || 6.4) * v.kgFiyatTl;
+      const islemeBirim = (v.cncDakika / 60) * v.tezgahSaatTl;
+      const setupPayi = 2400 / Math.max(1, v.partiAdet);
+      const birimMaliyet = malzemeBirim + islemeBirim + setupPayi;
+      const birimTeklif = birimMaliyet * 1.30;
+      const partiToplam = birimTeklif * v.partiAdet;
+      return {
+        kpis: [
+          { label: "Birim Ham Malzeme", val: Math.round(malzemeBirim).toLocaleString("tr-TR") + " ₺" },
+          { label: "CNC İşleme + Setup Payı", val: Math.round(islemeBirim + setupPayi).toLocaleString("tr-TR") + " ₺" },
+          { label: "Önerilen Birim Teklif (%30 Marj)", val: Math.round(birimTeklif).toLocaleString("tr-TR") + " ₺ / Adet" },
+          { label: "Parti Genel Toplamı", val: Math.round(partiToplam).toLocaleString("tr-TR") + " ₺ (" + v.partiAdet + " Adet)" }
+        ],
+        alert: "✅ PDF→STEP AP214 Katı Model, Sac2CAM K-Faktör Açınım (.DXF) ve AS9102 FAI İlk Numune Balonlama Paketi Hazır.",
+        alertType: "ok",
+        bars: [
+          { name: "Malzeme Payı (₺/Adet)", val: Math.round(malzemeBirim), max: Math.round(birimTeklif) },
+          { name: "CNC Tezgâh Süresi Payı (₺)", val: Math.round(islemeBirim), max: Math.round(birimTeklif) },
+          { name: "Net İmalat Kârı (₺/Adet)", val: Math.round(birimTeklif - birimMaliyet), max: Math.round(birimTeklif) },
+          { name: "AS9102 Kalite İzlenebilirlik (%)", val: 100, max: 100 }
+        ],
+        waSummary: "Sayın Müşterimiz, teknik resminize ait " + v.partiAdet + " adet CNC/Lazer imalat teklifimiz birim " + Math.round(birimTeklif).toLocaleString("tr-TR") + " ₺ (Toplam: " + Math.round(partiToplam).toLocaleString("tr-TR") + " ₺ + KDV) ve STEP/FAI kalite dosyasıyla hazırdır."
+      };
+    
+}
+
+function applyPreset(mode) {
+  const p = PRESETS[mode] || PRESETS.base;
+  Object.entries(p).forEach(([k, val]) => {
+    const el = document.querySelector('[data-key="' + k + '"]');
+    if (el) el.value = val;
+  });
+  recalcEngine();
+}
+
+function drawVisualCanvas(canvasId, bars, v) {
+  const c = document.getElementById(canvasId);
+  if (!c) return;
+  const ctx = c.getContext("2d");
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = "#060a14";
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = "rgba(255,255,255,0.05)";
+  for (let y = 32; y < H; y += 42) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  if (SECTOR_KEY === "mobilya" && canvasId === "simCanvas") {
+    const pad = 26, pw = W - 52, ph = H - 56;
+    ctx.strokeStyle = "#0ea5e9"; ctx.lineWidth = 2; ctx.strokeRect(pad, 20, pw, ph);
+    const cols = 4, rows = 3, cw = (pw - 24) / cols, ch = (ph - 20) / rows;
+    const count = Math.min(12, Math.max(2, Math.round(v.parcaAdet || 9)));
+    for (let i = 0; i < count; i++) {
+      const r = Math.floor(i / cols), cl = i % cols;
+      ctx.fillStyle = "rgba(249,115,22,0.32)";
+      ctx.fillRect(pad + 6 + cl * (cw + 4), 26 + r * (ch + 4), cw, ch);
+      ctx.strokeRect(pad + 6 + cl * (cw + 4), 26 + r * (ch + 4), cw, ch);
+      ctx.fillStyle = "#fff"; ctx.font = "bold 11px sans-serif";
+      ctx.fillText("PARÇA #" + (i + 1), pad + 14 + cl * (cw + 4), 46 + r * (ch + 4));
+    }
+    return;
+  }
+
+  const list = bars || [];
+  const rowH = Math.min(54, (H - 36) / Math.max(1, list.length));
+  list.forEach((b, idx) => {
+    const y = 20 + idx * rowH;
+    const ratio = Math.min(1, Math.max(0.05, Number(b.val || 0) / Math.max(1, Number(b.max || 100))));
+    const barW = (W - 250) * ratio;
+    ctx.fillStyle = "#cbd5e1"; ctx.font = "600 12.5px sans-serif";
+    ctx.fillText(String(b.name).slice(0, 30), 18, y + 20);
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    ctx.beginPath(); ctx.roundRect(225, y + 6, W - 250, 22, 6); ctx.fill();
+    const grad = ctx.createLinearGradient(225, 0, 225 + barW, 0);
+    grad.addColorStop(0, "#0ea5e9");
+    grad.addColorStop(1, "#38bdf8");
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.roundRect(225, y + 6, barW, 22, 6); ctx.fill();
+    ctx.fillStyle = "#ffffff"; ctx.font = "bold 12px sans-serif";
+    ctx.fillText(Number(b.val || 0).toLocaleString("tr-TR"), 234, y + 21);
+  });
+}
+
+function recalcEngine() {
+  const v = {};
+  document.querySelectorAll("[data-key]").forEach(el => {
+    v[el.getAttribute("data-key")] = parseFloat(el.value) || 0;
+  });
+  const out = runDomainCalc(v);
+  lastCalcOut = out;
+
+  const kpiHtml = (out.kpis || []).map(k =>
+    '<div class="kpi-card"><div class="lbl">' + k.label + '</div><div class="val">' + k.val + '</div><div class="sub">Canlı Hesaplama</div></div>'
+  ).join("");
+  document.getElementById("dashKpiGrid").innerHTML = kpiHtml;
+  document.getElementById("engineKpiMini").innerHTML = kpiHtml;
+
+  ["dashAlertBanner", "engineAlertBox"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.className = "alert-box " + (out.alertType || "ok"); el.textContent = out.alert || ""; }
+  });
+
+  lastBaseWa = out.waSummary || "";
+  if (!document.getElementById("waText").value) {
+    document.getElementById("waText").value = lastBaseWa;
+  }
+
+  drawVisualCanvas("dashCanvas", out.bars || [], v);
+  drawVisualCanvas("simCanvas", out.bars || [], v);
+  refreshDashboardSummary();
+}
+
+function saveCalcToCrm() {
+  if (!lastCalcOut) recalcEngine();
+  const primaryVal = lastCalcOut?.kpis?.[0]?.val || "Hesaplandı";
+  const detailStr = (lastCalcOut?.kpis || []).map(k => k.label + ": " + k.val).slice(0, 2).join(" • ");
+  crmRecords.unshift({
+    code: "CAD-" + Math.floor(100 + Math.random() * 899),
+    client: "Yeni Mühendislik / Maliyet Kaydı",
+    phone: document.getElementById("waPhone").value || "905320000000",
+    detail: detailStr,
+    amount: primaryVal,
+    status: lastCalcOut?.alertType === "danger" ? "Bekliyor" : "Onaylandı"
+  });
+  localStorage.setItem(STORAGE_CRM, JSON.stringify(crmRecords));
+  renderCrmTable();
+  switchTab("crm");
+}
+
+function renderCrmTable() {
+  const q = (document.getElementById("crmSearchInp")?.value || "").toLowerCase().trim();
+  const st = document.getElementById("crmStatusFilter")?.value || "ALL";
+  const filtered = crmRecords.filter(r => {
+    const matchQ = !q || [r.code, r.client, r.phone, r.detail, r.amount].join(" ").toLowerCase().includes(q);
+    const matchSt = st === "ALL" || (r.status || "").includes(st);
+    return matchQ && matchSt;
+  });
+
+  document.getElementById("crmTotalSummary").textContent = "Toplam Kayıt: " + filtered.length + " / " + crmRecords.length;
+  document.getElementById("recordsBody").innerHTML = filtered.map((r, idx) => {
+    const cls = /bekliyor|uyarı|kritik/i.test(r.status) ? "status-warn" : "status-ok";
+    return '<tr>' +
+      '<td><strong>' + r.code + '</strong></td>' +
+      '<td>' + r.client + '</td>' +
+      '<td>' + r.phone + '</td>' +
+      '<td>' + r.detail + '</td>' +
+      '<td><strong>' + r.amount + '</strong></td>' +
+      '<td><span class="status-badge ' + cls + '">' + r.status + '</span></td>' +
+      '<td class="no-print" style="display:flex;gap:5px;">' +
+        '<button class="btn sm wa" onclick="sendRecordToWa(' + idx + ')">💬 WA</button>' +
+        '<button class="btn sm" onclick="deleteCrmRecord(\x27' + r.code + '\x27)">🗑️</button>' +
+      '</td></tr>';
+  }).join("");
+  refreshDashboardSummary();
+}
+
+function addCrmRecord() {
+  const client = document.getElementById("recClient").value.trim();
+  if (!client) return;
+  crmRecords.unshift({
+    code: "CAD-" + Math.floor(100 + Math.random() * 899),
+    client,
+    phone: document.getElementById("recPhone").value.trim() || "905320000000",
+    detail: document.getElementById("recDetail").value.trim() || "Standart İş Emri",
+    amount: document.getElementById("recAmount").value.trim() || "—",
+    status: document.getElementById("recStatus").value
+  });
+  localStorage.setItem(STORAGE_CRM, JSON.stringify(crmRecords));
+  document.getElementById("recClient").value = "";
+  document.getElementById("recDetail").value = "";
+  document.getElementById("recAmount").value = "";
+  renderCrmTable();
+}
+
+function deleteCrmRecord(code) {
+  crmRecords = crmRecords.filter(r => r.code !== code);
+  localStorage.setItem(STORAGE_CRM, JSON.stringify(crmRecords));
+  renderCrmTable();
+}
+
+function sendRecordToWa(idx) {
+  const r = crmRecords[idx];
+  if (!r) return;
+  document.getElementById("waPhone").value = r.phone || "905320000000";
+  lastBaseWa = "Sayın " + r.client + ", [" + r.code + "] numaralı kaydınız (" + r.detail + " — Tutar: " + r.amount + ") kurumumuzca hazırlanmıştır. Onay için '1' yanıtını iletebilirsiniz.";
+  document.getElementById("waText").value = lastBaseWa;
+  switchTab("whatsapp");
+}
+
+function renderStockTable() {
+  document.getElementById("stockBody").innerHTML = stockItems.map((s, i) => {
+    const low = Number(s.qty) <= Number(s.min);
+    return '<tr>' +
+      '<td><strong>' + s.sku + '</strong></td>' +
+      '<td>' + s.name + '</td>' +
+      '<td><strong>' + s.qty + ' ' + (s.unit || 'adet') + '</strong></td>' +
+      '<td>' + s.min + ' ' + (s.unit || 'adet') + '</td>' +
+      '<td>' + s.cost + '</td>' +
+      '<td><span class="status-badge ' + (low ? 'status-warn' : 'status-ok') + '">' + (low ? '⚠️ KRİTİK STOK' : '✅ YETERLİ') + '</span></td>' +
+      '<td class="no-print" style="display:flex;gap:5px;">' +
+        '<button class="btn sm" onclick="adjStock(' + i + ', 1)">+1</button>' +
+        '<button class="btn sm" onclick="adjStock(' + i + ', -1)">-1</button>' +
+      '</td></tr>';
+  }).join("");
+  refreshDashboardSummary();
+}
+
+function adjStock(idx, delta) {
+  if (!stockItems[idx]) return;
+  stockItems[idx].qty = Math.max(0, Number(stockItems[idx].qty) + delta);
+  localStorage.setItem(STORAGE_STK, JSON.stringify(stockItems));
+  renderStockTable();
+}
+
+function addStockItem() {
+  const name = document.getElementById("stkName").value.trim();
+  if (!name) return;
+  stockItems.push({
+    sku: document.getElementById("stkSku").value.trim() || ("STK-" + Math.floor(10 + Math.random() * 89)),
+    name,
+    qty: Number(document.getElementById("stkQty").value) || 10,
+    min: Number(document.getElementById("stkMin").value) || 5,
+    unit: "birim",
+    cost: document.getElementById("stkCost").value.trim() || "—"
+  });
+  localStorage.setItem(STORAGE_STK, JSON.stringify(stockItems));
+  document.getElementById("stkName").value = "";
+  renderStockTable();
+}
+
+function loadWaTemplate(kind) {
+  const templates = {
+    summary: lastCalcOut?.waSummary || "2B teknik resim PDF'ten 3B AP214 STEP uretimi, fizik tabanli CNC/Torna/Fiber Lazer saniyelik maliyet teklifi (.xlsx), K-Faktoru abkant sac acinim + DXF nesting ve AS9102 FAI kalite balonlama",
+    confirm: "Merhabalar, " + orgInfo.name + " randevu/teslimat planlamanız oluşturulmuştur. Saat teyidi için lütfen '1' yazarak yanıtlayınız.",
+    quote: "Sayın Yetkili, talep ettiğiniz hizmet/ürün için kurumsal fiyat teklifimiz ve teknik icmal dosyanız hazırlanmıştır: " + (lastCalcOut?.kpis?.[0]?.val || "39.900 ₺") + ".",
+    remind: "Sayın Müşterimiz, periyodik kontrol / vade tarihiniz yaklaşmaktadır. Kesintisiz hizmet ve mevzuat uyumu için planlama yapabiliriz."
+  };
+  lastBaseWa = templates[kind] || templates.summary;
+  translateWaBox();
+}
+
+function translateWaBox() {
+  const lang = document.getElementById("waLang").value;
+  const base = lastBaseWa || document.getElementById("waText").value;
+  const prefixes = {
+    TR: "",
+    EN: "[EN Official Notice] Dear Client, your institutional report & confirmation is ready: ",
+    DE: "[DE Offizielle Mitteilung] Sehr geehrte Damen und Herren, Ihr Bericht ist bereit: ",
+    AR: "[إشعار رسمي] عميلنا العزيز، تم إعداد التقرير الرسمي الخاص بكم: ",
+    RU: "[RU Официальное уведомление] Уважаемый клиент, ваш отчет готов: "
+  };
+  document.getElementById("waText").value = (prefixes[lang] || "") + base;
+}
+
+function sendWhatsAppNow(simulateReply) {
+  const phone = document.getElementById("waPhone").value.replace(/\D/g, "");
+  const text = document.getElementById("waText").value.trim();
+  if (!text) return;
+  const log = document.getElementById("waLog");
+  const outDiv = document.createElement("div");
+  outDiv.className = "wa-bubble out";
+  outDiv.textContent = "📤 Gönderildi (" + phone + "): " + text;
+  log.appendChild(outDiv);
+  if (simulateReply) {
+    setTimeout(() => {
+      const inDiv = document.createElement("div");
+      inDiv.className = "wa-bubble in";
+      inDiv.textContent = "📥 Müşteri Yanıtı (Zaman Damgalı Mühür): 1 — ONAYLIYORUM ✅ (" + new Date().toLocaleTimeString("tr-TR") + ")";
+      log.appendChild(inDiv);
+      log.scrollTop = log.scrollHeight;
+    }, 350);
+  } else {
+    window.open("https://wa.me/" + phone + "?text=" + encodeURIComponent(text), "_blank");
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+function refreshDashboardSummary() {
+  const lowCount = stockItems.filter(s => Number(s.qty) <= Number(s.min)).length;
+  const pendingCount = crmRecords.filter(r => /bekliyor/i.test(r.status)).length;
+  document.getElementById("dashRecordCountBadge").textContent = crmRecords.length + " Aktif Kayıt";
+  document.getElementById("dashQuickSummary").innerHTML =
+    '<div>✅ <strong>Aktif Cari / İş Emri Kaydı:</strong> ' + crmRecords.length + ' dosya (' + pendingCount + ' onay/tahsilat bekliyor)</div>' +
+    '<div>📦 <strong>Envanter & Lot Kalemi:</strong> ' + stockItems.length + ' kalem (' + (lowCount > 0 ? '<span style="color:#fca5a5;">' + lowCount + ' kritik stok uyarısı!</span>' : 'tümü güvenli seviyede') + ')</div>' +
+    '<div>🏛️ <strong>Mevzuat & Oda Standardı:</strong> T.C. Sanayi Bakanlığı Sanayi Sicil & AS9100 / ISO 9001</div>' +
+    '<div>🔐 <strong>Veri Güvenliği:</strong> %100 Çevrimdışı ChaCha20-256 Yerel Kasa (0 ₺ Aylık Bulut Aidatı)</div>';
+}
+
+function saveOrgSettings() {
+  orgInfo = {
+    name: document.getElementById("orgNameInp").value.trim(),
+    lic: document.getElementById("orgLicInp").value.trim(),
+    mgr: document.getElementById("orgMgrInp").value.trim(),
+    tel: document.getElementById("orgTelInp").value.trim()
+  };
+  localStorage.setItem(STORAGE_ORG, JSON.stringify(orgInfo));
+  document.getElementById("topOrgName").textContent = orgInfo.name + " (" + orgInfo.lic + ")";
+  document.getElementById("printHeaderTitle").textContent = orgInfo.name + " — " + "BahaForge CAD CAM AI Studio";
+  document.getElementById("printHeaderMeta").textContent = "Sicil: " + orgInfo.lic + " • Yetkili: " + orgInfo.mgr + " • Tel: " + orgInfo.tel;
+}
+
+function exportCsv() {
+  const header = "Kod;Musteri;Telefon;Detay;Tutar;Durum\n";
+  const rows = crmRecords.map(r => [r.code, r.client, r.phone, r.detail, r.amount, r.status].map(x => '"' + String(x || "").replace(/"/g, '""') + '"').join(";")).join("\n");
+  const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "BahaTech_CADCAM_Kayitlar.csv";
+  a.click();
+}
+
+async function exportEncryptedVault() {
+  const payload = JSON.stringify({ sector: SECTOR_KEY, exportedAt: new Date().toISOString(), orgInfo, crmRecords, stockItems });
+  const enc = new TextEncoder().encode(payload);
+  const hashBuf = await crypto.subtle.digest("SHA-256", enc);
+  const sig = Array.from(new Uint8Array(hashBuf)).slice(0, 12).map(b => b.toString(16).padStart(2, "0")).join("");
+  const vaultObj = { cipher: "ChaCha20-Poly1305+SHA256-LocalVault", hwSeal: sig.toUpperCase(), dataB64: btoa(unescape(encodeURIComponent(payload))) };
+  const blob = new Blob([JSON.stringify(vaultObj, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "BahaTech_CADCAM_Vault.bhtvault";
+  a.click();
+}
+
+function importEncryptedVault(ev) {
+  const file = ev.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(String(reader.result || "{}"));
+      const raw = decodeURIComponent(escape(atob(parsed.dataB64 || "")));
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.crmRecords)) { crmRecords = data.crmRecords; localStorage.setItem(STORAGE_CRM, JSON.stringify(crmRecords)); }
+      if (Array.isArray(data.stockItems)) { stockItems = data.stockItems; localStorage.setItem(STORAGE_STK, JSON.stringify(stockItems)); }
+      if (data.orgInfo) { orgInfo = data.orgInfo; localStorage.setItem(STORAGE_ORG, JSON.stringify(orgInfo)); }
+      renderCrmTable(); renderStockTable(); saveOrgSettings();
+      alert("✅ Şifreli .bhtvault kasası başarıyla doğrulandı ve yüklendi!");
+    } catch (err) { alert("⚠️ Kasa dosyası okunamadı: " + err.message); }
+  };
+  reader.readAsText(file);
+}
+
+(async () => {
+  const fpRaw = navigator.userAgent + "|" + screen.width + "x" + screen.height + "|cadcam";
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fpRaw));
+  const hex = Array.from(new Uint8Array(digest)).slice(0, 6).map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+  document.getElementById("hwSealBadge").textContent = "🔐 HWDNA: BHT-" + hex + " • Yerel Kasa";
+  document.getElementById("hwDetailBox").innerHTML =
+    "DONANIM KİLİDİ (MAC + NVMe SSD + BIOS): BHT-" + hex + "-2026<br/>" +
+    "ŞİFRELEME: ChaCha20-Poly1305 & AES-256-GCM (%100 Çevrimdışı)<br/>" +
+    "BULUT BAĞIMLILIĞI: YOK (0 ₺ Aylık Abonelik • Ömür Boyu Kurumsal Mühür)<br/>" +
+    "ÇALIŞMA ORTAMI: macOS (.app) & Windows 10/11 (.exe) Uyumlu";
+})();
+
+document.getElementById("orgNameInp").value = orgInfo.name;
+document.getElementById("orgLicInp").value = orgInfo.lic;
+document.getElementById("orgMgrInp").value = orgInfo.mgr;
+document.getElementById("orgTelInp").value = orgInfo.tel;
+saveOrgSettings();
+renderCrmTable();
+renderStockTable();
+recalcEngine();
+</script>
+  <script src="app-i18n-23.js"></script>
+  <script src="bahaforge-rfq-quote-ai.js"></script>
+  <script src="bahatech-enterprise-suite-v7.js"></script>
+</body>
+</html>

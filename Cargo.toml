@@ -1,0 +1,18 @@
+[workspace]
+
+[package]
+name = "bahaforge-studio"
+version = "7.0.0"
+edition = "2021"
+authors = ["Bahadır Taş <admin@bahatechsoftware.com>"]
+description = "BahaForge CAD CAM AI Studio v7.0 — Pure Rust Native Windows (.exe) & macOS CNC RFQ, Material/Labor Quote, 2D PDF->3D STEP & VoluMill Desktop Suite"
+
+[[bin]]
+name = "BahaForge_CAD_CAM_Studio"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

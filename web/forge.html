@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BahaForge CAD CAM AI Studio v7.0 — BahaTech Software</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, sans-serif; }
+  html, body { height: 100%; width: 100%; overflow: hidden; background: #060a13; color: #f8fafc; display: flex; flex-direction: column; }
+  .bar {
+    height: 48px; min-height: 48px; padding: 0 14px;
+    background: linear-gradient(90deg, #0b1120, #111827, #0b1120);
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    user-select: none; -webkit-user-select: none;
+  }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 900; font-size: 13.5px; letter-spacing: -0.2px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: linear-gradient(135deg, #f97316, #38bdf8); box-shadow: 0 0 10px rgba(249,115,22,0.8); }
+  .brand span { color: #fb923c; }
+  .tabs { display: flex; align-items: center; gap: 6px; }
+  .tab {
+    cursor: pointer; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04);
+    color: #cbd5e1; padding: 6px 13px; border-radius: 9px; font-size: 12px; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 6px; transition: all .15s;
+  }
+  .tab:hover { background: rgba(255,255,255,0.09); color: #fff; }
+  .tab.active[data-mode="forge"] { background: rgba(249,115,22,0.22); border-color: #fb923c; color: #fed7aa; }
+  .tab.active[data-mode="cad"] { background: rgba(74,222,128,0.18); border-color: #4ade80; color: #86efac; }
+  .tab.active[data-mode="cam"] { background: rgba(56,189,248,0.20); border-color: #38bdf8; color: #bae6fd; }
+  .pill { padding: 4px 9px; border-radius: 999px; background: rgba(16,185,129,0.14); border: 1px solid rgba(16,185,129,0.35); color: #6ee7b7; font-size: 11px; font-weight: 700; }
+  .ws { flex: 1; position: relative; overflow: hidden; background: #060a13; }
+  .pane { position: absolute; inset: 0; border: 0; width: 100%; height: 100%; display: none; background: #060a13; }
+  .pane.visible { display: block; }
+</style>
+</head>
+<body>
+  <header class="bar">
+    <div class="brand">
+      <div class="dot"></div>
+      <div>BahaForge <span>CAD CAM AI Studio v7.0</span></div>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-mode="forge" onclick="setMode('forge')">📥 Teklif (RFQ) • Malzeme • İşçilik • Mail <small style="opacity:.6">⌘1</small></button>
+      <button class="tab" data-mode="cad" onclick="setMode('cad')">📐 2D PDF → 3D STEP (OpenCascade) <small style="opacity:.6">⌘2</small></button>
+      <button class="tab" data-mode="cam" onclick="setMode('cam')">⚙️ BahaCAM VoluMill CNC <small style="opacity:.6">⌘3</small></button>
+    </nav>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="pill">🔐 %100 Yerel • AES-256 • 0 ₺ Kira</span>
+      <button class="tab" style="padding:5px 9px;" onclick="reloadActive()" title="Yenile">🔄</button>
+    </div>
+  </header>
+  <main class="ws">
+    <iframe id="frame-forge" class="pane visible" src="BahaTech_CADCAM_OS.html" title="BahaForge Enterprise v7.0"></iframe>
+    <iframe id="frame-cad" class="pane" src="bahacad.html" title="BahaCAD OpenCascade"></iframe>
+    <iframe id="frame-cam" class="pane" src="bahacam.html" title="BahaCAM VoluMill"></iframe>
+  </main>
+<script>
+  let cur = "forge";
+  function setMode(m) {
+    cur = m;
+    document.querySelectorAll(".tab[data-mode]").forEach(b => b.classList.toggle("active", b.dataset.mode === m));
+    ["forge", "cad", "cam"].forEach(k => document.getElementById("frame-" + k).classList.toggle("visible", k === m));
+  }
+  function reloadActive() {
+    const el = document.getElementById("frame-" + cur);
+    if (el) el.contentWindow.location.reload();
+  }
+  window.setForgeMode = setMode;
+  window.reloadForge = reloadActive;
+  window.addEventListener("message", (ev) => {
+    if (ev.data && ev.data.type === "BAHACAD_TO_BAHACAM_STL") {
+      setMode("cam");
+      const camFrame = document.getElementById("frame-cam");
+      if (camFrame && camFrame.contentWindow) camFrame.contentWindow.postMessage(ev.data, "*");
+    }
+  });
+</script>
+</body>
+</html>
