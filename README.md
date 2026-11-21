@@ -1,22 +1,13 @@
-# BahaForge CAD CAM AI Studio v7.0 (100% Pure Rust — Zero Python!)
+# BahaTechWorks v7.8 — Endüstriyel Talaşlı İmalat, CAD/CAM & ERP (%100 Saf Rust)
 
-**BahaForge CAD CAM AI Studio v7.0**; CNC torna, 3/5-eksen CNC freze ve tel erozyon talaşlı imalat atölyeleri için **%100 Saf Rust (`std`)** ile sıfır harici bağımlılıkla derlenen masaüstü işletim sistemidir.
+**BahaTechWorks**; talaşlı imalat ve makine sanayi atölyeleri için **Teklif & Maliyet → 3D OpenCascade CAD & Stok Modeli → BahaCAM 2026 Takım Yolu → GİB e-Fatura** sürecini tek bir pencerede, harici tarayıcıya yönlendirmeden birleştiren saf Rust masaüstü yazılımıdır.
 
-## Temel Özellikler
-- **📥 Gelen Teklifler (RFQ) & Teklif Takip Kutusu:** Müşteri, parça kodu, malzeme, adet, termin, durum ve CSV/Excel dışa aktarım.
-- **🧠 Gömülü Yerel Öğrenen Fiyat Yapay Zekası (`BahaForge-Rust-LocalML`):** İnternetsiz, sıfır bulut! Program indirildiğinde içinde kurulu gelir. İlk birkaç PDF'te kullanıcının girdiği gerçek tezgâh süresi, alış malzeme fiyatı ve kâr marjını yerel `bahaforge_ml_memory.jsonl` hafızasına kaydeder; sonraki PDF teknik resimlerinde hacim/malzeme/adet benzerliğine göre (ağırlıklı k-NN + hacim ölçekleme) kendi fiyat ve süre tahminlerini otomatik doldurur.
-- **⚖️ Hassas Malzeme & İşçilik Hesabı:** 9 endüstriyel alaşım (7075, 6061, St37, 4140, AISI 304/316L, Ti-6Al-4V, Pirinç, POM), silindirik/prizmatik kütük, fire %, CNC torna/freze/tel erozyon, setup, takım aşınma, dış fason, kâr marjı & KDV.
-- **✉️ Müşteriye Teklif Maili & WhatsApp Stüdyosu:** Türkçe kurumsal ve İngilizce ihracat (EN) kırılımlı teklif mailini tek tıkla üretir (`mailto:`, kopyala, WhatsApp, A4 PDF).
-- **📐 2D PDF → 3D STEP & ⚙️ BahaCAM VoluMill CNC:** Tek tek tıkla 3D inceleme ve yüksek hızlı kaba boşaltma G-Code üretimi.
-- **🔐 %100 Yerel • 0 ₺ Aylık Kira • Sıfır Python / Sıfır Node.js:** Tek çalıştırılabilir `BahaForge_CAD_CAM_Studio.exe` (~1.2 MB).
+## İndir (Windows 64-bit `.exe`)
+- [BahaTechWorks_v7_Win64.exe (GitHub Releases)](https://github.com/Bahadirtash/BahaForge-CAD-CAM-Studio/releases/latest)
 
-## Derleme (Pure Rust)
-```bash
-# Windows 64-bit .exe
-cargo build --release --target x86_64-pc-windows-gnullvm
+## Temel Yetenekler
+- **Teklif & Maliyet:** PDF, `.STEP`, `.STL`, PNG, JPG, HEIC ve karakalem fotoğraf okuma; 14+ düzenlenebilir özkütle (`g/cm³`) ve birim fiyat (`₺/kg`) veritabanı; `Stok Payı (mm)`; Torna/Freze ayrımı; gömülü yerel öğrenen fiyat hafızası; uygulama içi doğrudan WhatsApp Business API ve otomatik resmi A4 PDF ekli kurumsal SMTP e-posta gönderimi.
+- **CNC Takım Yolu & 3D (BahaCAM 2026):** OpenCascade OCCT 8.0 ile gerçek `.STEP` okuma & 2D PDF → 3D B-Rep dönüşüm; doğal dil prompt ile 3D model revizyonu; sıfıra sıfır + `X/Y/Z` 3D stok kafesi; 8 özgün telifsiz işleme stratejisi (*BahaFlow Dinamik Trokoidal, Kalan Talaş/Rest, 5-Eksen Akıllı Eğim, Z-Seviye, Yüzey Tarama, 3B Finiş, Otomatik Delik/H7 Rayba, Tel Erozyon*); 7 kesici profili; çoklu operasyon ağacı (Geri Al / Yinele) ve Fanuc/Siemens/Haas/Heidenhain `.nc` G-Code.
+- **GİB e-Fatura:** Onaylanan tekliften tek tıkla aktarım, uygulama içi `Faturayı Aç` A4 önizleme, `UBL-TR 1.2 XML`, Logo/Mikro aktarımı ve yerel `~/Documents/BahaTechWorks_Faturalar/` arşivi.
 
-# macOS Apple Silicon
-cargo build --release
-```
-
-© 2026 **BahaTech Software LLC** — [bahatechsoftware.com](https://bahatechsoftware.com/products/cadcam-os.html)
+© 2026 **BahaTech Software LLC** — [bahatechsoftware.com](https://bahatechsoftware.com)

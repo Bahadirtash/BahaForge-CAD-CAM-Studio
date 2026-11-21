@@ -1,13 +1,13 @@
 /*!
- * BahaCAM × Cimatron VoluMill Ultra-High-Performance Roughing (UHPR) Engine v1.0
+ * BahaTechWorks — BahaFlow Dinamik Trokoidal Kaba İşleme (UHPR) Motoru v2.0
  * Implements true constant-engagement trochoidal roughing, helical ramp entry,
  * radial chip-thinning feed compensation, micro-lift rapid repositioning,
  * 3D Three.js animated carbide endmill simulation, and Fanuc/Siemens/Heidenhain/Haas G-Code export.
  */
 (function () {
   "use strict";
-  if (window.__BAHACAM_VOLUMILL_LOADED__) return;
-  window.__BAHACAM_VOLUMILL_LOADED__ = true;
+  if (window.__BAHACAM_BAHAFLOW_LOADED__) return;
+  window.__BAHACAM_BAHAFLOW_LOADED__ = true;
 
   const MATERIALS = {
     al6061: { name: "Alüminyum 6061 / 7075", vc: 360, fz: 0.085, aePct: 16, apMult: 2.5, coolant: "M8 (Basınçlı Bor Yağı)" },
@@ -18,10 +18,10 @@
   };
 
   const CONTROLLERS = {
-    fanuc: { name: "Fanuc (G05.1 Q1 AICC)", hsmOn: "G05.1 Q1 ; Fanuc AI Contour Control (VoluMill HSM)", hsmOff: "G05.1 Q0" },
-    siemens: { name: "Siemens 840D (CYCLE832)", hsmOn: "CYCLE832(0.05, _ROUGH, 1) ; Siemens HSM VoluMill", hsmOff: "CYCLE832()" },
+    fanuc: { name: "Fanuc (G05.1 Q1 AICC)", hsmOn: "G05.1 Q1 ; Fanuc AI Contour Control (BahaFlow HSM)", hsmOff: "G05.1 Q0" },
+    siemens: { name: "Siemens 840D (CYCLE832)", hsmOn: "CYCLE832(0.05, _ROUGH, 1) ; Siemens HSM BahaFlow", hsmOff: "CYCLE832()" },
     haas: { name: "Haas NGC (G187 P1 E0.05)", hsmOn: "G187 P1 E0.05 ; Haas Roughing Smoothness", hsmOff: "G187" },
-    heidenhain: { name: "Heidenhain (M120 / CYCLE 32)", hsmOn: "M120 LA20 ; Heidenhain Look-Ahead VoluMill", hsmOff: "M120" },
+    heidenhain: { name: "Heidenhain (M120 / CYCLE 32)", hsmOn: "M120 LA20 ; Heidenhain Look-Ahead BahaFlow", hsmOff: "M120" },
   };
 
   let voluGroup = null;
@@ -98,7 +98,7 @@
     const ae = (D * aePct) / 100.0;
     const ap = D * apMult;
     const rpm = Math.round((1000 * mat.vc) / (Math.PI * D));
-    // Radial Chip Thinning Compensation (RCTF) — core VoluMill physics!
+    // Radial Chip Thinning Compensation (RCTF) — core BahaFlow physics!
     const ratio = ae / D;
     const rctf = ratio < 0.5 ? Math.min(2.6, 1.0 / Math.sqrt(4 * ratio * (1 - ratio))) : 1.0;
     const fzEff = mat.fz * rctf;
@@ -173,16 +173,16 @@
 
     const gLines = [
       `; ============================================================`,
-      `; BAHACAM × CIMATRON VOLUMILL (UHPR) ULTRA-HIGH-PERF ROUGHING`,
+      `; BAHATECHWORKS — BAHAFLOW DINAMIK TROKOIDAL KABA (UHPR)`,
       `; Malzeme      : ${p.mat.name} (Vc=${p.mat.vc} m/dk)`,
       `; Takim        : D${p.D}mm ${p.z}-Agiz Karbur Parmak Freze`,
-      `; VoluMill ae  : ${p.ae.toFixed(2)} mm (%${p.aePct}D sabit radyal temas)`,
-      `; VoluMill ap  : ${p.ap.toFixed(2)} mm (${p.apMult}xD tam agiz derinligi)`,
+      `; BahaFlow ae  : ${p.ae.toFixed(2)} mm (%${p.aePct}D sabit radyal temas)`,
+      `; BahaFlow ap  : ${p.ap.toFixed(2)} mm (${p.apMult}xD tam agiz derinligi)`,
       `; ChipThinning : ${p.rctf.toFixed(2)}x -> F=${p.feedCut} mm/dk | S=${p.rpm} RPM`,
       `; MRR / Kazanc : ${p.mrr.toFixed(1)} cm3/dk | Konvansiyonele gore -%${p.timeSavedPct} sure`,
       `; ============================================================`,
       `G21 G90 G17 G40 G49 G80`,
-      `T01 M06 (D${p.D} Z${p.z} VOLUMILL CARBIDE ENDMILL)`,
+      `T01 M06 (D${p.D} Z${p.z} BAHAFLOW CARBIDE ENDMILL)`,
       `S${p.rpm} M03`,
       `${p.ctrl.hsmOn}`,
       `M08 (${p.mat.coolant})`,
@@ -216,11 +216,11 @@
       }
     }
 
-    // 2. TROCHOIDAL CONSTANT-ENGAGEMENT VOLUMILL LOOPS (Neon Cyan + Micro-Lift Coral Repositions!)
+    // 2. TROCHOIDAL CONSTANT-ENGAGEMENT BAHAFLOW LOOPS (Neon Cyan + Micro-Lift Coral Repositions!)
     const stepX = Math.max(0.42, (p.ae / scaleMm) * 1.35);
     const loopAmpZ = size.z * 0.44;
     const loopRx = Math.max(0.35, stepX * 0.85);
-    gLines.push(`; --- 2. VOLUMILL TROKOIDAL SABIT TEMASLI KABA ISLEME ---`);
+    gLines.push(`; --- 2. BAHAFLOW TROKOIDAL SABIT TEMASLI KABA ISLEME ---`);
 
     let passIdx = 0;
     for (let cx = box.min.x + hRad * 1.6; cx <= box.max.x - 0.35; cx += stepX) {
@@ -239,7 +239,7 @@
       }
       cutPts.push(arcGroupPts);
 
-      // Emit smooth G03 arc / fluid VoluMill G-code for this trochoidal sweep
+      // Emit smooth G03 arc / fluid BahaFlow G-code for this trochoidal sweep
       const p0 = arcGroupPts[0];
       const pMid = arcGroupPts[Math.floor(segs / 2)];
       const pEnd = arcGroupPts[segs];
@@ -248,7 +248,7 @@
           `G01 X${(p0.x * scaleMm).toFixed(2)} Y${(p0.z * scaleMm).toFixed(2)} Z${(cutY * scaleMm).toFixed(2)} F${p.feedCut}`
         );
         gLines.push(
-          `G03 X${(pMid.x * scaleMm).toFixed(2)} Y${(pMid.z * scaleMm).toFixed(2)} R${(loopAmpZ * scaleMm).toFixed(2)} F${p.feedCut} (VoluMill Pass #${passIdx})`
+          `G03 X${(pMid.x * scaleMm).toFixed(2)} Y${(pMid.z * scaleMm).toFixed(2)} R${(loopAmpZ * scaleMm).toFixed(2)} F${p.feedCut} (BahaFlow Pass #${passIdx})`
         );
         gLines.push(
           `G03 X${(pEnd.x * scaleMm).toFixed(2)} Y${(pEnd.z * scaleMm).toFixed(2)} R${(loopAmpZ * scaleMm).toFixed(2)} F${p.feedCut}`
@@ -324,12 +324,12 @@
     const st = document.getElementById("gcode-status");
     if (st) {
       st.style.color = "#00f5d4";
-      st.textContent = `VoluMill UHPR Aktif • ${passIdx} Trokoidal Paso • MRR ${p.mrr.toFixed(1)} cm³/dk (-%${p.timeSavedPct} süre)`;
+      st.textContent = `BahaFlow UHPR Aktif • ${passIdx} Trokoidal Paso • MRR ${p.mrr.toFixed(1)} cm³/dk (-%${p.timeSavedPct} süre)`;
     }
 
     if (typeof addSystemMsg === "function") {
       addSystemMsg(
-        `⚡ <b>Cimatron VoluMill (UHPR) Takımyolu Üretildi!</b><br>` +
+        `⚡ <b>BahaFlow Dinamik Trokoidal (UHPR) Takımyolu Üretildi!</b><br>` +
           `• Malzeme: <b>${p.mat.name}</b> | D${p.D}mm ${p.z}-Ağız<br>` +
           `• Radyal Paso (ae): <b>${p.ae.toFixed(2)} mm (%${p.aePct}D)</b> · Eksenel (ap): <b>${p.ap.toFixed(1)} mm</b><br>` +
           `• Talaş İncelmesi Kompanzasyonu: <b>${p.rctf.toFixed(2)}x → F${p.feedCut} mm/dk, S${p.rpm} RPM</b><br>` +
@@ -343,7 +343,7 @@
     const blob = new Blob([lastGeneratedGcode], { type: "text/plain;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "BahaCAM_VoluMill_UHPR.nc";
+    a.download = "BahaTechWorks_BahaFlow_UHPR.nc";
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
@@ -373,7 +373,7 @@
       const btn = document.createElement("div");
       btn.className = "vm-btn-top";
       btn.id = "btnOpenVoluMill";
-      btn.innerHTML = `<i class="fa-solid fa-bolt"></i> VoluMill (Cimatron UHPR)`;
+      btn.innerHTML = `<i class="fa-solid fa-bolt"></i> BahaFlow (UHPR)`;
       btn.onclick = () => document.getElementById("voluMillDrawer").classList.toggle("open");
       topBar.appendChild(btn);
 
@@ -384,13 +384,13 @@
       topBar.appendChild(dlBtn);
     }
 
-    // Add VoluMill chip to BahaCAM Copilot suggestions
+    // Add BahaFlow chip to BahaCAM Copilot suggestions
     const sugg = document.querySelector(".suggestions");
     if (sugg) {
       const chip = document.createElement("span");
       chip.className = "suggestion-chip";
       chip.style.cssText = "background:linear-gradient(135deg,#00c896,#0284c7);color:#fff;font-weight:700;";
-      chip.textContent = "⚡ Cimatron VoluMill (Trokoidal Kaba)";
+      chip.textContent = "BahaFlow Dinamik Trokoidal Kaba";
       chip.onclick = () => {
         document.getElementById("voluMillDrawer").classList.add("open");
         runVoluMill();
@@ -398,13 +398,13 @@
       sugg.prepend(chip);
     }
 
-    // Create VoluMill Floating Parameter Drawer
+    // Create BahaFlow Floating Parameter Drawer
     const drawer = document.createElement("aside");
     drawer.id = "voluMillDrawer";
     drawer.className = "vm-drawer open";
     drawer.innerHTML = `
       <div class="vm-hdr">
-        <h3><i class="fa-solid fa-hurricane"></i> Cimatron VoluMill Motoru (UHPR)</h3>
+        <h3><i class="fa-solid fa-hurricane"></i> BahaFlow Dinamik Kaba Motoru (UHPR)</h3>
         <button class="vm-close" onclick="document.getElementById('voluMillDrawer').classList.remove('open')">✕</button>
       </div>
       <div class="vm-grid">
@@ -455,7 +455,7 @@
         <div class="vm-kpi"><div class="l">Süre Kazancı</div><div class="v gold" id="vmKpiSave">-</div></div>
       </div>
       <div class="vm-actions">
-        <button class="vm-act run" id="vmBtnRun"><i class="fa-solid fa-bolt"></i> VoluMill Üret</button>
+        <button class="vm-act run" id="vmBtnRun"><i class="fa-solid fa-bolt"></i> BahaFlow Üret</button>
         <button class="vm-act sim" id="vmBtnSim"><i class="fa-solid fa-play"></i> Oynat / Dur</button>
         <button class="vm-act dl" id="vmBtnDl"><i class="fa-solid fa-file-code"></i> .NC İndir</button>
       </div>
@@ -486,13 +486,13 @@
     };
     document.getElementById("vmBtnDl").onclick = downloadVoluGcode;
 
-    // Intercept BahaCAM Copilot prompts containing "volumill", "trokoidal", "cimatron", "hsm", "kaba"
+    // Intercept BahaCAM Copilot prompts containing "bahaflow", "trokoidal", "hsm", "kaba"
     if (typeof window.sendPrompt === "function" && !window.sendPrompt.__voluWrapped) {
       const origSend = window.sendPrompt;
       window.sendPrompt = function () {
         const inp = document.getElementById("ai-input");
         const val = (inp ? inp.value : "").trim().toLowerCase();
-        if (val && /volumill|volumilling|trokoidal|trochoidal|cimatron|uhpr|yüksek hızlı kaba/.test(val)) {
+        if (val && /bahaflow|trokoidal|trochoidal|uhpr|yüksek hızlı kaba/.test(val)) {
           const uMsg = document.createElement("div");
           uMsg.className = "msg user";
           uMsg.innerText = inp.value.trim();
@@ -529,7 +529,7 @@
         if (typeof createGeometry === "function") createGeometry(geom);
         document.getElementById("voluMillDrawer")?.classList.add("open");
         if (typeof addSystemMsg === "function") {
-          addSystemMsg(`📐 <b>BahaCAD PDF → 3D STEP modeli aktarıldı:</b> ${ev.data.partName || "3D Solid"} (${ev.data.material || ""}). Cimatron VoluMill takımyolu hesaplanıyor...`);
+          addSystemMsg(`📐 <b>BahaTechWorks 3D STEP modeli aktarıldı:</b> ${ev.data.partName || "3D Solid"} (${ev.data.material || ""}). BahaFlow dinamik takımyolu hesaplanıyor...`);
         }
         setTimeout(runVoluMill, 350);
       } catch (e) {

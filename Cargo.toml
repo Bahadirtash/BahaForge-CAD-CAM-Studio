@@ -1,14 +1,14 @@
 [workspace]
 
 [package]
-name = "bahaforge-studio"
-version = "7.0.0"
+name = "bahatechworks"
+version = "7.8.0"
 edition = "2021"
 authors = ["Bahadır Taş <admin@bahatechsoftware.com>"]
-description = "BahaForge CAD CAM AI Studio v7.0 — Pure Rust Native Windows (.exe) & macOS CNC RFQ, Material/Labor Quote, 2D PDF->3D STEP & VoluMill Desktop Suite"
+description = "BahaTechWorks — Pure Rust Native Windows (.exe) & macOS Industrial CNC Quotation, 3D OpenCascade CAD, Stock Model, BahaCAM 2026 & GIB e-Fatura Suite"
 
 [[bin]]
-name = "BahaForge_CAD_CAM_Studio"
+name = "BahaTechWorks"
 path = "src/main.rs"
 
 [profile.release]

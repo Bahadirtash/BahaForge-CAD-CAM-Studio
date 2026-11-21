@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>BahaWorks — 3D CAD, Stok Modeli &amp; CNC Takım Yolu</title>
+<title>BahaTechWorks — 3D CAD, Stok Modeli &amp; CNC Takım Yolu</title>
 <style>
   :root {
     --bg: #f3f6fa;
@@ -650,7 +650,7 @@
 
     const gcode = [
       `%`,
-      `O7800 (${(currentBundle?.part_name || "BAHAWORKS_PART").toUpperCase()})`,
+      `O7800 (${(currentBundle?.part_name || "BAHATECHWORKS_PART").toUpperCase()})`,
       `(BAHACAM 2026 | STRATEJI: ${strat.toUpperCase()} | PROFIL: ${prof.toUpperCase()} | TAKIM: D${D} Z${$("camFlutes").value} | EGIM: ${tiltDeg} DEG)`,
       `(STOK MODEL: +${sx}/+${sy}/+${sz} MM | CARPISMA KORUMA: AKTIF)`,
       `G21 G90 G17 G40 G49 G80`,
@@ -836,7 +836,7 @@
 
       if (!isFromParentSync && window.parent && window.parent !== window) {
         window.parent.postMessage({
-          type: "BAHAWORKS_CAD_UPLOADED_FILE",
+          type: "BAHATECHWORKS_CAD_UPLOADED_FILE",
           filename,
           file_b64: fileDataUrl,
           preview_png_b64: d.preview_png_b64 || ""
@@ -857,7 +857,7 @@
   // AUTO-RECEIVE ACTIVE DRAWING FROM TEKLİF & MALİYET TAB (ZERO RE-UPLOAD NEEDED!)
   window.addEventListener("message", (ev) => {
     const msg = ev.data;
-    if (!msg || msg.type !== "BAHAWORKS_SYNC_ACTIVE_FILE") return;
+    if (!msg || msg.type !== "BAHATECHWORKS_SYNC_ACTIVE_FILE") return;
     if (msg.material_preset) { $("camMatPreset").value = msg.material_preset; updateCuttingParams(); }
     if (msg.machine_type) $("camMachineType").value = msg.machine_type;
     if (msg.stock_x != null) $("stX").value = msg.stock_x;
@@ -945,9 +945,9 @@
     a.href = URL.createObjectURL(new Blob([content], { type: mime }));
     a.download = name; a.click();
   }
-  $("btnDownloadStep").onclick = () => currentBundle?.step_content && dlFile(`${currentBundle.filename_base || "BahaWorks"}.step`, currentBundle.step_content, "application/step");
-  $("btnDownloadStl").onclick = () => currentBundle?.stl_content && dlFile(`${currentBundle.filename_base || "BahaWorks"}.stl`, currentBundle.stl_content, "model/stl");
-  $("btnExportNc").onclick = () => lastGcode && dlFile(`${currentBundle?.filename_base || "BahaWorks"}_${$("camStrategy").value}.nc`, lastGcode, "text/plain");
+  $("btnDownloadStep").onclick = () => currentBundle?.step_content && dlFile(`${currentBundle.filename_base || "BahaTechWorks"}.step`, currentBundle.step_content, "application/step");
+  $("btnDownloadStl").onclick = () => currentBundle?.stl_content && dlFile(`${currentBundle.filename_base || "BahaTechWorks"}.stl`, currentBundle.stl_content, "model/stl");
+  $("btnExportNc").onclick = () => lastGcode && dlFile(`${currentBundle?.filename_base || "BahaTechWorks"}_${$("camStrategy").value}.nc`, lastGcode, "text/plain");
 
   updateCuttingParams();
 })();

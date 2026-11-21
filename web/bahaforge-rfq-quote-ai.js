@@ -1,5 +1,5 @@
 /**
- * BahaForge CAD CAM AI Studio — Talaşlı İmalat Gelen Teklifler (RFQ),
+ * BahaTechWorks — Talaşlı İmalat Gelen Teklifler (RFQ),
  * 2D Teknik Resim AI Fiyat Yorumlama, Malzeme + İşçilik Hesabı ve Resmi Teklif Maili Stüdyosu.
  * %100 Yerel çalışır; canlı studio_cad_server.py (/api/rfq-analyze) varsa 2D PDF/görsel teknik resmi AI ile okur.
  */
@@ -157,7 +157,7 @@
       setupMin: 75, toolPct: 7, outsideUnit: 240, marginPct: 32,
       leadDays: 10,
       tolerance: "±0.02 mm • Sert Eloksal",
-      comment: "7075-T6 kütükte VoluMill yüksek hızlı kaba boşaltma ile işleme süresi %35 kısaltılabilir; sert eloksal fason bedeli eklendi.",
+      comment: "7075-T6 kütükte BahaFlow yüksek hızlı kaba boşaltma ile işleme süresi %35 kısaltılabilir; sert eloksal fason bedeli eklendi.",
       status: "Yeni RFQ",
     },
   ];
@@ -989,7 +989,7 @@ Tel: ${tel}`;
       const csv = "\uFEFF" + rows.map(r => r.map(x => `"${String(x ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
       const a = document.createElement("a");
       a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-      a.download = "BahaForge_Gelen_Teklifler_RFQ.csv";
+      a.download = "BahaTechWorks_Gelen_Teklifler_RFQ.csv";
       a.click();
     };
 

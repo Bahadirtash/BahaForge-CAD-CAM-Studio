@@ -162,7 +162,7 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
                 let (_, _, smtp_u, smtp_p) = get_smtp_creds();
                 let mem_n = load_ml_records().len();
                 let resp = format!(
-                    r#"{{"ok":true,"engine":"BahaTech Industry Pure Rust Engine v7.2","os":"{}","arch":"{}","ml_samples":{},"xai_configured":{},"whatsapp_api_ready":{},"smtp_ready":{},"smtp_user":"{}"}}"#,
+                    r#"{{"ok":true,"engine":"BahaTechWorks Pure Rust Engine v7.8.0","os":"{}","arch":"{}","ml_samples":{},"xai_configured":{},"whatsapp_api_ready":{},"smtp_ready":{},"smtp_user":"{}"}}"#,
                     env::consts::OS,
                     env::consts::ARCH,
                     mem_n,
@@ -177,7 +177,7 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
                 let mem = load_ml_records();
                 let n = mem.len();
                 let conf = if n == 0 { 0 } else { (n.min(12) * 65 / 12 + 28).min(97) };
-                let resp = format!(r#"{{"ok":true,"trained":{},"confidence":{},"engine":"BahaTech-Rust-LocalML"}}"#, n, conf);
+                let resp = format!(r#"{{"ok":true,"trained":{},"confidence":{},"engine":"BahaTechWorks-Rust-LocalML"}}"#, n, conf);
                 write_json(&mut stream, 200, &resp)
             }
             _ => write_json(&mut stream, 404, r#"{"ok":false,"error":"Sayfa bulunamadı"}"#),
@@ -440,11 +440,11 @@ fn handle_direct_email_send(body: &str) -> String {
     let pdf_b64 = pdf_b64_raw.split_once(',').map(|(_, r)| r).unwrap_or(&pdf_b64_raw).trim().to_string();
     let pdf_filename = {
         let f = extract_json_str(body, "pdf_filename");
-        if f.is_empty() { "BahaWorks_Teklif.pdf".to_string() } else { f }
+        if f.is_empty() { "BahaTechWorks_Teklif.pdf".to_string() } else { f }
     };
 
     let eml = if !pdf_b64.is_empty() {
-        let boundary = "----=_BahaWorks_MIME_7F9A2C";
+        let boundary = "----=_BahaTechWorks_MIME_7F9A2C";
         // Wrap base64 at 76 chars per line per RFC 2045
         let mut wrapped = String::with_capacity(pdf_b64.len() + pdf_b64.len() / 70 + 16);
         let bytes_b64 = pdf_b64.as_bytes();
@@ -517,7 +517,7 @@ fn handle_direct_email_send(body: &str) -> String {
     }
 }
 
-/// Saves official UBL-TR 1.2 XML & HTML archive into ~/Documents/BahaWorks_Faturalar/ locally!
+/// Saves official UBL-TR 1.2 XML & HTML archive into ~/Documents/BahaTechWorks_Faturalar/ locally!
 fn handle_save_invoice_disk(body: &str) -> String {
     let inv_no = extract_json_str(body, "inv_no");
     let xml = extract_json_str(body, "xml");
@@ -527,7 +527,7 @@ fn handle_save_invoice_disk(body: &str) -> String {
         .collect();
     let fname_base = if clean_no.is_empty() { "BHW_FATURA".to_string() } else { clean_no };
     let home = env::var("HOME").or_else(|_| env::var("USERPROFILE")).unwrap_or_else(|_| ".".into());
-    let dir = PathBuf::from(home).join("Documents").join("BahaWorks_Faturalar");
+    let dir = PathBuf::from(home).join("Documents").join("BahaTechWorks_Faturalar");
     if fs::create_dir_all(&dir).is_err() {
         return r#"{"ok":false,"error":"Faturalar klasörü oluşturulamadı."}"#.into();
     }
@@ -746,7 +746,7 @@ fn analyze_step_file_rust(filename: &str, raw: &[u8]) -> Option<String> {
     );
 
     Some(format!(
-        r#"{{"ok":true,"engine":"BahaWorks Rust STEP Parser v7.3","vision_verified":true,"customer":"","part_name":"3D STEP Parça ({})","part_code":"{}","qty":10,"material_key":"{}","material_label":"{}","density_g_cm3":{:.2},"shape":"{}","dim_d_mm":{:.1},"dim_x_mm":{:.1},"dim_y_mm":{:.1},"dim_z_mm":{:.1},"billet_kg":{:.3},"billet_grams":{},"net_kg":{:.3},"net_grams":{},"direct_mat_unit_tl":{},"kg_price_tl":{:.0},"tolerance":"ISO 2768-m","turn_min":{},"mill_min":{},"edm_min":0,"setup_min":45,"difficulty":"Hassas","engineering_comment":"{}","preview_png_b64":"{}"}}"#,
+        r#"{{"ok":true,"engine":"BahaTechWorks Rust STEP Parser v7.3","vision_verified":true,"customer":"","part_name":"3D STEP Parça ({})","part_code":"{}","qty":10,"material_key":"{}","material_label":"{}","density_g_cm3":{:.2},"shape":"{}","dim_d_mm":{:.1},"dim_x_mm":{:.1},"dim_y_mm":{:.1},"dim_z_mm":{:.1},"billet_kg":{:.3},"billet_grams":{},"net_kg":{:.3},"net_grams":{},"direct_mat_unit_tl":{},"kg_price_tl":{:.0},"tolerance":"ISO 2768-m","turn_min":{},"mill_min":{},"edm_min":0,"setup_min":45,"difficulty":"Hassas","engineering_comment":"{}","preview_png_b64":"{}"}}"#,
         json_escape(&clean_code),
         json_escape(&clean_code),
         mat_key,
@@ -900,7 +900,7 @@ fn analyze_drawing_with_vision_rust(filename: &str, png_bytes: &[u8]) -> Option<
     let direct_mat_tl = (billet_kg * 1.08 * kg_price).round() as i64;
 
     Some(format!(
-        r#"{{"ok":true,"engine":"BahaWorks Rust + Vision v7.3","vision_verified":true,"customer":"{}","part_name":"{}","part_code":"{}","qty":{},"material_key":"{}","material_label":"{}","density_g_cm3":{:.2},"shape":"{}","dim_d_mm":{:.1},"dim_x_mm":{:.1},"dim_y_mm":{:.1},"dim_z_mm":{:.1},"billet_kg":{:.3},"billet_grams":{},"net_kg":{:.3},"net_grams":{},"direct_mat_unit_tl":{},"kg_price_tl":{:.0},"tolerance":"{}","turn_min":{},"mill_min":{},"edm_min":{},"setup_min":{},"difficulty":"{}","engineering_comment":"{}","preview_png_b64":"{}"}}"#,
+        r#"{{"ok":true,"engine":"BahaTechWorks Rust + Vision v7.3","vision_verified":true,"customer":"{}","part_name":"{}","part_code":"{}","qty":{},"material_key":"{}","material_label":"{}","density_g_cm3":{:.2},"shape":"{}","dim_d_mm":{:.1},"dim_x_mm":{:.1},"dim_y_mm":{:.1},"dim_z_mm":{:.1},"billet_kg":{:.3},"billet_grams":{},"net_kg":{:.3},"net_grams":{},"direct_mat_unit_tl":{},"kg_price_tl":{:.0},"tolerance":"{}","turn_min":{},"mill_min":{},"edm_min":{},"setup_min":{},"difficulty":"{}","engineering_comment":"{}","preview_png_b64":"{}"}}"#,
         json_escape(&customer),
         json_escape(if part_name.is_empty() { "CNC Talaşlı İmalat Parçası" } else { &part_name }),
         json_escape(if part_code.is_empty() { filename } else { &part_code }),
@@ -1195,7 +1195,7 @@ fn handle_rfq_analyze(body: &str) -> String {
     );
 
     format!(
-        r#"{{"ok":true,"engine":"BahaForge Rust Native v7.1","part_name":"{}","part_code":"{}","material_key":"{}","material_label":"{}","shape":"{}","dim_d_mm":{},"dim_x_mm":{},"dim_y_mm":{},"dim_z_mm":{},"net_grams":{},"direct_mat_unit_tl":{},"tolerance":"ISO 2768-m","turn_min":{},"mill_min":{},"edm_min":0,"setup_min":30,"difficulty":"Standart","engineering_comment":"{}"}}"#,
+        r#"{{"ok":true,"engine":"BahaTechWorks Rust Native v7.8","part_name":"{}","part_code":"{}","material_key":"{}","material_label":"{}","shape":"{}","dim_d_mm":{},"dim_x_mm":{},"dim_y_mm":{},"dim_z_mm":{},"net_grams":{},"direct_mat_unit_tl":{},"tolerance":"ISO 2768-m","turn_min":{},"mill_min":{},"edm_min":0,"setup_min":30,"difficulty":"Standart","engineering_comment":"{}"}}"#,
         json_escape(&specs["part_name"]),
         json_escape(&specs["part_code"]),
         json_escape(&specs["material_key"]),
@@ -1291,13 +1291,13 @@ fn handle_rust_pdf2step(body: &str, is_refine: bool) -> String {
     let r = od / 2.0;
 
     let step_txt = format!(
-        "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('BahaForge Rust Pure CAD Solid'),'2;1');\nFILE_NAME('{}.step','2026-11-21',('BahaTech Software'),('BahaForge Rust v7.0'),'Rust-BRep','BahaForge','');\nFILE_SCHEMA(('AUTOMOTIVE_DESIGN {{ 1 0 10303 214 1 1 1 1 }}'));\nENDSEC;\nDATA;\n#1=APPLICATION_CONTEXT('automotive design');\n#2=PRODUCT('{}','{}','',(#1));\n#10=CARTESIAN_POINT('',(0.,0.,0.));\n#11=DIRECTION('',(0.,0.,1.));\n#12=DIRECTION('',(1.,0.,0.));\n#13=AXIS2_PLACEMENT_3D('',#10,#11,#12);\n#20=CYLINDRICAL_SURFACE('',#13,{:.3});\n#21=PLANE('',#13);\n#22=CARTESIAN_POINT('',(0.,0.,{:.3}));\n#23=AXIS2_PLACEMENT_3D('',#22,#11,#12);\n#24=PLANE('',#23);\n#30=ADVANCED_BREP_SHAPE_REPRESENTATION('{}',(#20,#21,#24),#13);\nENDSEC;\nEND-ISO-10303-21;\n",
+        "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('BahaTechWorks Pure CAD Solid'),'2;1');\nFILE_NAME('{}.step','2026-11-21',('BahaTech Software'),('BahaTechWorks v7.8'),'Rust-BRep','BahaTechWorks','');\nFILE_SCHEMA(('AUTOMOTIVE_DESIGN {{ 1 0 10303 214 1 1 1 1 }}'));\nENDSEC;\nDATA;\n#1=APPLICATION_CONTEXT('automotive design');\n#2=PRODUCT('{}','{}','',(#1));\n#10=CARTESIAN_POINT('',(0.,0.,0.));\n#11=DIRECTION('',(0.,0.,1.));\n#12=DIRECTION('',(1.,0.,0.));\n#13=AXIS2_PLACEMENT_3D('',#10,#11,#12);\n#20=CYLINDRICAL_SURFACE('',#13,{:.3});\n#21=PLANE('',#13);\n#22=CARTESIAN_POINT('',(0.,0.,{:.3}));\n#23=AXIS2_PLACEMENT_3D('',#22,#11,#12);\n#24=PLANE('',#23);\n#30=ADVANCED_BREP_SHAPE_REPRESENTATION('{}',(#20,#21,#24),#13);\nENDSEC;\nEND-ISO-10303-21;\n",
         specs["part_code"], specs["part_code"], specs["part_name"], r, h, specs["part_code"]
     );
 
     // Build smooth 48-segment cylinder ASCII STL in pure Rust
     let segs = 48usize;
-    let mut stl = String::from("solid bahaforge_rust\n");
+    let mut stl = String::from("solid bahatechworks_cad\n");
     for i in 0..segs {
         let a0 = (i as f64) * 2.0 * std::f64::consts::PI / (segs as f64);
         let a1 = ((i + 1) as f64) * 2.0 * std::f64::consts::PI / (segs as f64);
@@ -1313,14 +1313,14 @@ fn handle_rust_pdf2step(body: &str, is_refine: bool) -> String {
         stl.push_str(&format!("facet normal {:.4} {:.4} 0\n outer loop\n  vertex {:.3} {:.3} 0\n  vertex {:.3} {:.3} 0\n  vertex {:.3} {:.3} {:.3}\n endloop\nendfacet\n", nx, ny, x0, y0, x1, y1, x1, y1, h));
         stl.push_str(&format!("facet normal {:.4} {:.4} 0\n outer loop\n  vertex {:.3} {:.3} 0\n  vertex {:.3} {:.3} {:.3}\n  vertex {:.3} {:.3} {:.3}\n endloop\nendfacet\n", nx, ny, x0, y0, x1, y1, h, x0, y0, h));
     }
-    stl.push_str("endsolid bahaforge_rust\n");
+    stl.push_str("endsolid bahatechworks_cad\n");
 
     let vol_cm3 = (std::f64::consts::PI * r * r * h) / 1000.0;
     let mass_kg = vol_cm3 * 7.85 / 1000.0;
-    let code = format!("// Pure Rust BahaForge Analytic Solid\n// Outer Dia: {:.1} mm | Height: {:.1} mm", od, h);
+    let code = format!("// BahaTechWorks Pure Rust Analytic Solid\n// Outer Dia: {:.1} mm | Height: {:.1} mm", od, h);
 
     format!(
-        r#"{{"ok":true,"engine":"BahaForge Rust Native CAD v7.0 (Zero-Python)","part_name":"{}","material":"{}","filename_base":"{}","engineering_notes":"Pure Rust motoru ile {:.1}x{:.1} mm katı model ve ISO-10303-21 AP214 STEP üretildi.","attempts":1,"python_code":"{}","step_content":"{}","stl_content":"{}","stats":{{"bbox_mm":[{:.2},{:.2},{:.2}],"volume_cm3":{:.2},"area_cm2":{:.2},"mass_kg":{:.3},"faces":3,"edges":2}}}}"#,
+        r#"{{"ok":true,"engine":"BahaTechWorks Native CAD v7.8 (Zero-Python)","part_name":"{}","material":"{}","filename_base":"{}","engineering_notes":"Pure Rust motoru ile {:.1}x{:.1} mm katı model ve ISO-10303-21 AP214 STEP üretildi.","attempts":1,"python_code":"{}","step_content":"{}","stl_content":"{}","stats":{{"bbox_mm":[{:.2},{:.2},{:.2}],"volume_cm3":{:.2},"area_cm2":{:.2},"mass_kg":{:.3},"faces":3,"edges":2}}}}"#,
         json_escape(&specs["part_name"]),
         json_escape(&specs["material_label"]),
         json_escape(&specs["part_code"]),
@@ -1485,7 +1485,7 @@ fn handle_ml_predict(body: &str) -> String {
     let top_sim = scored[0].1;
     let conf = (((n.min(12) as f64 / 12.0) * 58.0 + top_sim * 40.0).round() as i32).min(97);
     let expl = format!(
-        "BahaForge Rust Yerel ML ({} geçmiş işten öğrendi, Güven %{}): En yakın referans '{} ({})' (%{} benzer). Parça başı malzeme bedeli, tezgâh süreleri ve kâr marjı otomatik dolduruldu.",
+        "BahaTechWorks Yerel ML ({} geçmiş işten öğrendi, Güven %{}): En yakın referans '{} ({})' (%{} benzer). Parça başı malzeme bedeli, tezgâh süreleri ve kâr marjı otomatik dolduruldu.",
         n, conf, top.part_name, top.part_code, (top_sim * 100.0).round() as i32
     );
 

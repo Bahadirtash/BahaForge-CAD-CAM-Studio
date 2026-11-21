@@ -1,4 +1,4 @@
-name: Build BahaForge Pure Rust Windows .exe & Release
+name: Build BahaTechWorks Pure Rust Windows .exe & Release
 
 on:
   push:
@@ -14,27 +14,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build Pure Rust Windows x64 GUI .exe (Zero Python)
+      - name: Build Pure Rust Windows x64 GUI .exe
         run: cargo build --release
-      - name: Copy & Rename Release Binary
+      - name: Prepare Release Executable
         shell: pwsh
         run: |
-          Copy-Item target/release/BahaForge_CAD_CAM_Studio.exe BahaForge_CAD_CAM_Studio_v7_Win64.exe
-          Get-Item BahaForge_CAD_CAM_Studio_v7_Win64.exe | Select-Object Name, Length
+          Copy-Item target/release/BahaTechWorks.exe BahaTechWorks_v7_Win64.exe
+          Get-Item BahaTechWorks_v7_Win64.exe | Select-Object Name, Length
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BahaForge_CAD_CAM_Studio_v7_Win64
-          path: BahaForge_CAD_CAM_Studio_v7_Win64.exe
-      - name: Publish GitHub Release v7.0.0 (.exe)
+          name: BahaTechWorks_v7_Win64
+          path: BahaTechWorks_v7_Win64.exe
+      - name: Publish GitHub Release v7.8.0 (.exe)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v7.0.0
-          name: BahaForge CAD CAM AI Studio v7.0.0 (Pure Rust Windows .exe)
+          tag_name: v7.8.0
+          name: BahaTechWorks v7.8.0 (Pure Rust Windows .exe)
           body: |
-            ## BahaForge CAD CAM AI Studio v7.0.0 — %100 Saf Rust (Sıfır Python)
-            - Tek tıkla çalışan bağımsız **Windows 64-bit `.exe`** (kurulum, Python veya Node.js gerekmez)
-            - **Gömülü Yerel Öğrenen Fiyat AI (`BahaForge-Rust-LocalML`)**: İlk PDF'lerden öğrenerek sonraki çizimlerde kendi süre ve fiyatlarını tahmin eder
-            - **Gelen Teklifler (RFQ) + Malzeme (kg/fire) + İşçilik + Teklif Maili & WhatsApp Stüdyosu**
-            - **2D PDF → 3D STEP + BahaCAM VoluMill CNC**
-          files: BahaForge_CAD_CAM_Studio_v7_Win64.exe
+            ## BahaTechWorks v7.8.0 — Endüstriyel Talaşlı İmalat, CAD/CAM & ERP (%100 Saf Rust)
+            - Tek tıkla çalışan bağımsız **Windows 64-bit `.exe`** (Python/Node gerekmez)
+            - **Teklif & Maliyet:** PDF/STEP/JPG/PNG/HEIC okuma, 14+ düzenlenebilir özkütle (`g/cm³`) veritabanı, `Stok Payı (mm)`, Torna/Freze ayrımı, gömülü öğrenen fiyat hafızası, uygulama içi doğrudan WhatsApp API & otomatik A4 PDF ekli SMTP e-posta
+            - **CNC Takım Yolu & 3D (BahaCAM 2026):** Gerçek OpenCascade B-Rep STEP görüntüleme, Prompt ile 3D revizyon, sıfıra sıfır + X/Y/Z 3D stok kafesi, 8 özgün strateji, 7 kesici profili, 5-eksen otomatik eğim, çoklu operasyon ağacı (Geri Al/Yinele) ve Fanuc/Siemens/Haas/Heidenhain `.nc`
+            - **GİB e-Fatura:** Uygulama içi `Faturayı Aç` A4 önizleme, `UBL-TR 1.2 XML`, Logo/Mikro aktarımı ve yerel `BahaTechWorks_Faturalar` arşivi
+            - **Esnek Arayüz:** Cam yüzeyli modern tasarım + Excel gibi kaydırılabilir tüm paneller ve tablo sütunları
+          files: BahaTechWorks_v7_Win64.exe
