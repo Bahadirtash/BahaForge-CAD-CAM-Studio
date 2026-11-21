@@ -436,10 +436,37 @@ fn handle_direct_email_send(body: &str) -> String {
     let disp_name = if sender_name.is_empty() { "BahaTech" } else { &sender_name };
     let subj_b64 = base64_encode(subject.as_bytes());
     let name_b64 = base64_encode(disp_name.as_bytes());
-    let eml = format!(
-        "From: =?UTF-8?B?{}?= <{}>\r\nTo: {}\r\nReply-To: {}\r\nSubject: =?UTF-8?B?{}?=\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n{}\r\n",
-        name_b64, user, to_email, user, subj_b64, content
-    );
+    let pdf_b64_raw = extract_json_str(body, "pdf_b64");
+    let pdf_b64 = pdf_b64_raw.split_once(',').map(|(_, r)| r).unwrap_or(&pdf_b64_raw).trim().to_string();
+    let pdf_filename = {
+        let f = extract_json_str(body, "pdf_filename");
+        if f.is_empty() { "BahaWorks_Teklif.pdf".to_string() } else { f }
+    };
+
+    let eml = if !pdf_b64.is_empty() {
+        let boundary = "----=_BahaWorks_MIME_7F9A2C";
+        // Wrap base64 at 76 chars per line per RFC 2045
+        let mut wrapped = String::with_capacity(pdf_b64.len() + pdf_b64.len() / 70 + 16);
+        let bytes_b64 = pdf_b64.as_bytes();
+        let mut idx = 0;
+        while idx < bytes_b64.len() {
+            let end = (idx + 76).min(bytes_b64.len());
+            wrapped.push_str(&String::from_utf8_lossy(&bytes_b64[idx..end]));
+            wrapped.push_str("\r\n");
+            idx = end;
+        }
+        format!(
+            "From: =?UTF-8?B?{}?= <{}>\r\nTo: {}\r\nReply-To: {}\r\nSubject: =?UTF-8?B?{}?=\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"{}\"\r\n\r\n--{}\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n{}\r\n\r\n--{}\r\nContent-Type: application/pdf; name=\"{}\"\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"{}\"\r\n\r\n{}--{}--\r\n",
+            name_b64, user, to_email, user, subj_b64, boundary,
+            boundary, content,
+            boundary, pdf_filename, pdf_filename, wrapped, boundary
+        )
+    } else {
+        format!(
+            "From: =?UTF-8?B?{}?= <{}>\r\nTo: {}\r\nReply-To: {}\r\nSubject: =?UTF-8?B?{}?=\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n{}\r\n",
+            name_b64, user, to_email, user, subj_b64, content
+        )
+    };
 
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

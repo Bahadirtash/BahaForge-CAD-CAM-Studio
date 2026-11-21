@@ -3,539 +3,756 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>BahaCAD — 2D Teknik Resim PDF → 3D OpenCascade B-Rep STEP</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<title>BahaWorks — 3D CAD, Stok Modeli &amp; CNC Takım Yolu</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif; }
-  html, body { height: 100%; width: 100%; overflow: hidden; background: #070b14; color: #f8fafc; }
-  .layout { display: grid; grid-template-columns: 356px 1fr; height: 100vh; width: 100vw; }
-  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } }
+  :root {
+    --bg: #f3f6fa;
+    --panel: rgba(255, 255, 255, 0.88);
+    --border: rgba(15, 23, 42, 0.09);
+    --ink: #0f172a;
+    --ink2: #334155;
+    --muted: #64748b;
+    --accent: #1d4ed8;
+    --ok: #047857;
+    --amber: #d97706;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, sans-serif; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink); }
+  .num { font-variant-numeric: tabular-nums; }
 
-  /* Clean Left Rail — ONLY PDF -> 3D STEP! */
+  /* 3-COLUMN SWISS CAD/CAM STUDIO LAYOUT */
+  .studio { display: grid; grid-template-columns: 300px 1fr 310px; height: 100vh; width: 100vw; }
   .rail {
-    background: #0b1120; border-right: 1px solid rgba(255,255,255,0.09);
-    display: flex; flex-direction: column; padding: 16px; gap: 12px; overflow-y: auto;
+    background: var(--panel); backdrop-filter: blur(20px);
+    border-right: 1px solid var(--border);
+    padding: 14px; display: flex; flex-direction: column; gap: 11px; overflow-y: auto;
   }
-  .rail-head { display: flex; align-items: center; justify-content: space-between; }
-  .rail-title { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
-  .rail-title span { color: #38bdf8; }
-  .occt-pill {
-    font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 99px;
-    background: rgba(16,185,129,0.16); border: 1px solid rgba(16,185,129,0.45); color: #6ee7b7;
+  .rail-right {
+    background: var(--panel); backdrop-filter: blur(20px);
+    border-left: 1px solid var(--border);
+    padding: 14px; display: flex; flex-direction: column; gap: 11px; overflow-y: auto;
   }
+
+  .sec-hd { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-top: 2px; }
+  .pill { font-size: 10.5px; font-weight: 650; padding: 2px 8px; border-radius: 999px; background: rgba(29,78,216,0.09); color: var(--accent); }
+  .pill.ok { background: rgba(4,120,87,0.10); color: var(--ok); }
 
   .dropzone {
-    border: 2px dashed rgba(56,189,248,0.55); border-radius: 14px; padding: 20px 14px;
-    text-align: center; cursor: pointer; background: rgba(56,189,248,0.06);
-    transition: all .18s ease;
+    border: 1.5px dashed rgba(29,78,216,0.34); border-radius: 11px; padding: 14px 12px;
+    text-align: center; cursor: pointer; background: rgba(255,255,255,0.75); transition: 0.15s;
   }
-  .dropzone:hover, .dropzone.dragover {
-    background: rgba(56,189,248,0.16); border-color: #4ade80; transform: translateY(-1px);
-  }
-  .dropzone .ico { font-size: 28px; margin-bottom: 6px; }
-  .dropzone strong { display: block; font-size: 13.5px; color: #f8fafc; margin-bottom: 4px; }
-  .dropzone small { font-size: 11px; color: #94a3b8; line-height: 1.4; display: block; }
+  .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: rgba(219,234,254,0.38); }
+  .dropzone strong { display: block; font-size: 12.5px; color: var(--ink); }
+  .dropzone small { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
 
-  .pdf-preview-wrap {
-    display: none; background: #0f172a; border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px; overflow: hidden;
-  }
-  .pdf-preview-wrap.show { display: block; }
-  .pdf-preview-bar {
-    padding: 7px 10px; font-size: 11px; font-weight: 700; color: #cbd5e1;
-    background: rgba(255,255,255,0.04); display: flex; justify-content: space-between; align-items: center;
-  }
-  .pdf-preview-img {
-    width: 100%; max-height: 185px; object-fit: contain; background: #ffffff; display: block;
-    cursor: zoom-in;
-  }
+  .preview-box { display: none; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; }
+  .preview-box.show { display: block; }
+  .preview-box img { width: 100%; max-height: 150px; object-fit: contain; display: block; cursor: zoom-in; }
+  .preview-cap { padding: 5px 9px; font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; border-top: 1px solid var(--border); background: #f8fafc; }
 
-  .status-card {
-    background: rgba(15,23,42,0.85); border: 1px solid rgba(56,189,248,0.28);
-    border-radius: 12px; padding: 11px 12px; font-size: 12px; line-height: 1.48; color: #cbd5e1;
+  .status-box {
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 11px;
+    background: #f8fafc; font-size: 11.5px; line-height: 1.48; color: var(--ink2);
   }
-  .status-card.ok { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.08); }
-  .status-card.err { border-color: rgba(239,68,68,0.55); background: rgba(239,68,68,0.10); color: #fecaca; }
+  .status-box.ok { border-color: rgba(4,120,87,0.30); background: rgba(4,120,87,0.06); color: #065f46; }
+  .status-box.err { border-color: rgba(185,28,28,0.30); background: rgba(185,28,28,0.06); color: #991b1b; }
 
-  .steps-list { display: flex; flex-direction: column; gap: 5px; margin-top: 7px; font-size: 11px; color: #94a3b8; }
-  .step-item.done { color: #6ee7b7; font-weight: 700; }
-  .step-item.active { color: #38bdf8; font-weight: 700; }
+  .specs { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .spec { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; }
+  .spec .l { font-size: 10px; font-weight: 650; text-transform: uppercase; color: var(--muted); }
+  .spec .v { font-size: 12.5px; font-weight: 700; color: var(--ink); margin-top: 2px; }
 
-  .specs-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
-  .spec-box {
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px; padding: 8px 10px;
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; font-weight: 600; color: var(--ink2); }
+  .field input, .field select {
+    height: 32px; padding: 0 9px; border-radius: 7px; border: 1px solid rgba(15,23,42,0.14);
+    background: #fff; color: var(--ink); font-size: 12.5px; width: 100%;
   }
-  .spec-box .l { font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 700; }
-  .spec-box .v { font-size: 13px; font-weight: 800; color: #f8fafc; margin-top: 2px; }
-  .spec-box .v.green { color: #4ade80; }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(29,78,216,0.12); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
 
-  .actions { display: flex; flex-direction: column; gap: 8px; }
   .btn {
-    cursor: pointer; border: none; border-radius: 11px; padding: 11px 14px; font-size: 13px;
-    font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-    transition: all .15s; width: 100%;
+    height: 34px; padding: 0 11px; border-radius: 8px; border: 1px solid var(--border);
+    background: #fff; color: var(--ink); font-size: 12px; font-weight: 650;
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: 0.14s; width: 100%;
   }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
-  .btn.step { background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 8px 22px rgba(16,185,129,0.28); }
-  .btn.cam { background: linear-gradient(135deg, #f57c00, #ea580c); color: #fff; }
-  .btn.row-half { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0; background: none; }
-  .btn.sec { background: #162036; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.12); padding: 9px 10px; font-size: 12px; }
+  .btn:hover { background: #f8fafc; border-color: rgba(15,23,42,0.22); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #1e40af; }
+  .btn.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .btn.amber { background: var(--amber); border-color: var(--amber); color: #fff; }
+  .btn.sm { height: 28px; font-size: 11.5px; padding: 0 9px; }
 
-  .refine-box { display: flex; gap: 6px; }
-  .refine-box input {
-    flex: 1; background: #070b14; border: 1px solid rgba(255,255,255,0.14); color: #fff;
-    border-radius: 9px; padding: 8px 10px; font-size: 12px; outline: none;
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip {
+    font-size: 10.5px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border);
+    background: #fff; color: var(--ink2); cursor: pointer; font-weight: 550;
   }
-  .refine-box input:focus { border-color: #38bdf8; }
-  .refine-box button {
-    background: #2563eb; color: #fff; border: none; border-radius: 9px; padding: 0 12px;
-    font-size: 12px; font-weight: 800; cursor: pointer;
-  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
 
-  details.code-wrap { background: #070b14; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 8px 10px; }
-  details.code-wrap summary { cursor: pointer; font-size: 11.5px; font-weight: 700; color: #7dd3fc; }
-  pre.code-pre {
-    margin-top: 8px; font-family: "SF Mono", Menlo, monospace; font-size: 10.5px;
-    color: #93c5fd; white-space: pre-wrap; max-height: 180px; overflow-y: auto; line-height: 1.4;
+  /* CENTER 3D VIEWPORT */
+  .viewport { position: relative; background: radial-gradient(circle at 50% 38%, #1e293b 0%, #0f172a 65%, #090e1a 100%); overflow: hidden; }
+  #c3d { width: 100%; height: 100%; display: block; }
+  .vp-bar {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 4px; padding: 5px 7px; border-radius: 10px;
+    background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12);
   }
+  .vp-btn {
+    border: 0; background: transparent; color: #cbd5e1; font-size: 11.5px; font-weight: 600;
+    padding: 5px 10px; border-radius: 7px; cursor: pointer;
+  }
+  .vp-btn:hover { background: rgba(255,255,255,0.10); color: #fff; }
+  .vp-btn.active { background: #2563eb; color: #fff; }
+  .vp-hud {
+    position: absolute; bottom: 12px; left: 14px; right: 14px;
+    display: flex; justify-content: space-between; pointer-events: none;
+  }
+  .vp-tag {
+    font-size: 11px; color: #cbd5e1; background: rgba(15,23,42,0.75);
+    border: 1px solid rgba(255,255,255,0.12); padding: 5px 10px; border-radius: 8px;
+  }
+  .vp-empty {
+    position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; text-align: center; color: #94a3b8;
+  }
+  .vp-empty h2 { font-size: 17px; color: #e2e8f0; margin-bottom: 6px; }
+  .vp-empty p { font-size: 12.5px; max-width: 400px; line-height: 1.5; }
 
-  /* Full-Screen Clean 3D CAD Viewport (SolidWorks Studio Aesthetic) */
-  .stage {
-    position: relative; height: 100%; width: 100%; overflow: hidden;
-    background: radial-gradient(circle at 50% 42%, #1d283a 0%, #0d1424 62%, #070b14 100%);
+  .gcode-box {
+    background: #0f172a; color: #a7f3d0; font-family: ui-monospace, Menlo, monospace;
+    font-size: 10.5px; line-height: 1.45; border-radius: 8px; padding: 8px;
+    max-height: 125px; overflow-y: auto; display: none; white-space: pre;
   }
-  #viewport { width: 100%; height: 100%; }
+  .gcode-box.show { display: block; }
 
-  .view-toolbar {
-    position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 20;
-    display: flex; gap: 5px; padding: 5px 7px; border-radius: 12px;
-    background: rgba(11,17,32,0.84); backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 10px 28px rgba(0,0,0,0.4);
-  }
-  .vbtn {
-    cursor: pointer; border: 1px solid transparent; background: transparent; color: #cbd5e1;
-    padding: 5px 10px; border-radius: 8px; font-size: 11.5px; font-weight: 700; transition: .15s;
-  }
-  .vbtn:hover { background: rgba(255,255,255,0.08); color: #fff; }
-  .vbtn.on { background: rgba(56,189,248,0.2); border-color: rgba(56,189,248,0.45); color: #7dd3fc; }
-
-  .empty-hint {
-    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    pointer-events: none; text-align: center; padding: 24px; transition: opacity .25s;
-  }
-  .empty-hint.gone { opacity: 0; }
-  .empty-hint h2 { font-size: 24px; font-weight: 800; color: rgba(248,250,252,0.88); margin-bottom: 8px; }
-  .empty-hint p { font-size: 13.5px; color: #94a3b8; max-width: 480px; line-height: 1.55; }
-
-  .hud-bottom {
-    position: absolute; bottom: 14px; left: 16px; right: 16px; z-index: 15;
-    display: flex; justify-content: space-between; align-items: center; pointer-events: none;
-    font-size: 11.5px; color: #94a3b8;
-  }
-  .hud-chip {
-    background: rgba(11,17,32,0.82); backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.1); padding: 5px 11px; border-radius: 99px;
-    color: #cbd5e1; font-weight: 700;
-  }
-
-  .zoom-modal {
-    position: fixed; inset: 0; background: rgba(2,6,23,0.88); backdrop-filter: blur(8px);
-    display: none; place-items: center; z-index: 9999; padding: 24px; cursor: zoom-out;
-  }
+  .zoom-modal { position: fixed; inset: 0; display: none; place-items: center; background: rgba(15,23,42,0.82); z-index: 9999; padding: 24px; cursor: zoom-out; }
   .zoom-modal.open { display: grid; }
-  .zoom-modal img { max-width: 92vw; max-height: 90vh; background: #fff; border-radius: 12px; box-shadow: 0 24px 70px rgba(0,0,0,0.7); }
+  .zoom-modal img { max-width: 92vw; max-height: 90vh; background: #fff; border-radius: 10px; }
 </style>
 </head>
 <body>
-<div class="layout">
+<div class="studio">
+  <!-- LEFT RAIL: MODEL IMPORT + PROMPT STEP MODIFICATION -->
   <aside class="rail">
-    <div class="rail-head">
-      <div class="rail-title">📐 BahaCAD <span>PDF → STEP</span></div>
-      <span class="occt-pill" id="kernelPill">OpenCascade B-Rep</span>
+    <div class="sec-hd">
+      <span>1. 3D Model &amp; STEP</span>
+      <span class="pill ok">OpenCascade 8.0</span>
     </div>
 
     <div class="dropzone" id="dropzone">
-      <div class="ico">📐</div>
-      <strong>PDF Teknik Resim veya 3D STEP Bırak</strong>
-      <small>veya tıklayıp seç (.PDF, .STEP, .STP, .PNG, .JPG)<br/>OpenCascade OCCT 8.0 B-Rep Görüntüleme &amp; PDF→STEP</small>
-      <input type="file" id="fileInput" accept=".pdf,.step,.stp,.png,.jpg,.jpeg,.webp,application/pdf,image/*" style="display:none;" />
+      <strong>PDF, STEP, PNG veya JPG Bırak</strong>
+      <small>Gerçek .STEP doğrudan 3D açılır · 2D PDF / görsel OpenCascade B-Rep .STEP'e çevrilir</small>
+      <input type="file" id="fileInput" accept=".pdf,.step,.stp,.stl,.png,.jpg,.jpeg,.webp,application/pdf,image/*" style="display:none;" />
     </div>
 
-    <div class="pdf-preview-wrap" id="pdfPreviewWrap">
-      <div class="pdf-preview-bar">
-        <span id="pdfFileName">Teknik Resim</span>
-        <span style="color:#38bdf8;font-size:10.5px;">Büyütmek için tıkla</span>
-      </div>
-      <img id="pdfPreviewImg" class="pdf-preview-img" alt="PDF Teknik Resim" />
+    <div class="preview-box" id="previewBox">
+      <img id="previewImg" alt="Teknik Resim" />
+      <div class="preview-cap"><span id="previewName">Dosya</span><span>Büyütmek için tıkla</span></div>
     </div>
 
-    <div class="status-card" id="statusCard">
-      <div id="statusText">Hazır — bir 2D teknik resim PDF'i sürükleyip bıraktığında OpenCascade B-Rep motoru gerçek <b>.STEP</b> katı modelini üretir.</div>
-      <div class="steps-list" id="stepsList" style="display:none;">
-        <div class="step-item" id="st1">○ 1. PyMuPDF 300 DPI + Ölçü/Vektör Okuma</div>
-        <div class="step-item" id="st2">○ 2. Grok-4.20 Vision → build123d B-Rep Kodu</div>
-        <div class="step-item" id="st3">○ 3. OpenCascade (OCCT) Katı Model Derleme</div>
-        <div class="step-item" id="st4">○ 4. ISO 10303-21 AP214 .STEP &amp; 3D Önizleme</div>
-      </div>
+    <div class="status-box" id="statusBox">
+      Hazır — sol kutuya bir <strong>.STEP</strong> veya <strong>2D PDF / JPG</strong> dosyası bırakın; model ortada 3D açılır, sağ panelde stok kafesi ve CNC takım yolları aktif olur.
     </div>
 
-    <div class="specs-grid" id="specsGrid" style="display:none;">
-      <div class="spec-box"><div class="l">Kutu Ölçü (mm)</div><div class="v" id="spBbox">-</div></div>
-      <div class="spec-box"><div class="l">B-Rep Hacim</div><div class="v green" id="spVol">-</div></div>
-      <div class="spec-box"><div class="l">Tahmini Ağırlık</div><div class="v" id="spMass">-</div></div>
-      <div class="spec-box"><div class="l">B-Rep Yüzey / Kenar</div><div class="v" id="spTopo">-</div></div>
+    <div class="specs num" id="specsGrid" style="display:none;">
+      <div class="spec"><div class="l">Parça Ölçü (mm)</div><div class="v" id="spBbox">-</div></div>
+      <div class="spec"><div class="l">Net Hacim</div><div class="v" id="spVol">-</div></div>
+      <div class="spec"><div class="l">B-Rep Yüzey / Kenar</div><div class="v" id="spTopo">-</div></div>
+      <div class="spec"><div class="l">Tahmini Kütle</div><div class="v" id="spMass">-</div></div>
     </div>
 
-    <div class="actions">
-      <button class="btn step" id="btnDownloadStep" disabled>📐 .STEP İndir (ISO 10303-21 B-Rep)</button>
-      <button class="btn cam" id="btnSendCam" disabled>⚙️ BahaCAM VoluMill'e Gönder</button>
-      <div class="btn row-half">
-        <button class="btn sec" id="btnDownloadStl" disabled>🧊 .STL İndir</button>
-        <button class="btn sec" id="btnDownloadPy" disabled>🐍 .PY Kodu</button>
-      </div>
+    <!-- PROMPT-BASED 3D STEP MODIFICATION -->
+    <div class="sec-hd">
+      <span>2. Prompt İle 3D STEP Revizyon</span>
+      <span class="pill">B-Rep Boolean</span>
     </div>
-
-    <div id="refineWrap" style="display:none;">
-      <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:5px;">✨ Ölçü / Revizyon Düzelt (isteğe bağlı)</div>
-      <div class="refine-box">
-        <input id="refineInput" placeholder="ör. Ortadaki deliği Ø40 yap, kenara R2 pah kır..." />
-        <button id="btnRefine">Uygula</button>
-      </div>
+    <div class="field">
+      <label>Doğal dil komutu ile modeli değiştir</label>
+      <input id="refineInput" placeholder="Örn: 15 çapındaki deliği 25'e çıkar" />
     </div>
+    <div class="chips">
+      <button type="button" class="chip" data-cmd="15 çapındaki deliği 25'e çıkar">Ø15 → Ø25</button>
+      <button type="button" class="chip" data-cmd="X:40, Y:20 koordinatına Ø10 boydan delik del">X:40 Y:20 Ø10 Delik</button>
+      <button type="button" class="chip" data-cmd="Üst dış kenara 2 mm pah kır">Üst 2mm Pah</button>
+    </div>
+    <button type="button" class="btn primary" id="btnRefine" disabled>Prompt Revizyonunu STEP'e Uygula</button>
 
-    <details class="code-wrap" id="codeWrap" style="display:none;">
-      <summary>🔧 Üretilen OpenCascade (build123d) B-Rep Kodu</summary>
-      <pre class="code-pre" id="codePre"></pre>
-    </details>
+    <div class="grid-2" style="margin-top:auto;padding-top:8px;border-top:1px solid var(--border);">
+      <button type="button" class="btn ok" id="btnDownloadStep" disabled>.STEP İndir</button>
+      <button type="button" class="btn" id="btnDownloadStl" disabled>.STL İndir</button>
+    </div>
   </aside>
 
-  <main class="stage" id="stageDrop">
-    <div class="view-toolbar">
-      <button class="vbtn on" onclick="setCameraView('iso')">İzometrik</button>
-      <button class="vbtn" onclick="setCameraView('front')">Ön</button>
-      <button class="vbtn" onclick="setCameraView('top')">Üst</button>
-      <button class="vbtn" onclick="setCameraView('right')">Sağ</button>
-      <button class="vbtn on" id="btnEdges" onclick="toggleEdges()">Kenar Çizgisi</button>
-      <button class="vbtn" id="btnWire" onclick="toggleWire()">Tel Kafes</button>
-      <button class="vbtn" onclick="fitCamera()">Sığdır</button>
+  <!-- CENTER: REAL 3D OPENCASCADE + STOCK MODEL CAGE + LIVE TOOLPATH VIEWPORT -->
+  <section class="viewport" id="viewport">
+    <canvas id="c3d"></canvas>
+    <div class="vp-bar">
+      <button class="vp-btn active" onclick="setCamView('iso',this)">İzometrik</button>
+      <button class="vp-btn" onclick="setCamView('front',this)">Ön</button>
+      <button class="vp-btn" onclick="setCamView('top',this)">Üst</button>
+      <button class="vp-btn" onclick="setCamView('right',this)">Sağ</button>
+      <button class="vp-btn active" id="btnStockVis" onclick="toggleStockCage(this)">Stok Kafesi</button>
+      <button class="vp-btn active" id="btnEdgeVis" onclick="toggleEdges(this)">Kenar</button>
+      <button class="vp-btn" onclick="fitCamera()">Sığdır</button>
+    </div>
+    <div class="vp-empty" id="vpEmpty">
+      <div>
+        <h2>3D B-Rep Model, Stok Kafesi &amp; CNC Takım Yolu</h2>
+        <p>Bir .STEP, .STL veya 2D teknik resim PDF dosyası bıraktığınızda parça sıfıra sıfır stok kafesiyle birlikte burada açılır.</p>
+      </div>
+    </div>
+    <div class="vp-hud">
+      <div class="vp-tag num" id="hudLeft">Model bekleniyor...</div>
+      <div class="vp-tag">Sol Tık: Döndür · Sağ Tık: Kaydır · Tekerlek: Yakınlaştır</div>
+    </div>
+  </section>
+
+  <!-- RIGHT RAIL: STOCK MODEL DEFINITION (X/Y/Z) + CAM TOOLPATH PARAMETERS -->
+  <aside class="rail-right">
+    <div class="sec-hd">
+      <span>3. Stok Modeli (Sıfıra Sıfır + Pay)</span>
+      <span class="pill" id="stockModePill">Freze Kafesi</span>
     </div>
 
-    <div id="viewport"></div>
-
-    <div class="empty-hint" id="emptyHint">
-      <h2>2D Teknik Resim PDF → 3D STEP</h2>
-      <p>Herhangi bir makine/kalıp teknik resim PDF'ini doğrudan bu pencereye veya sol alana sürükleyip bırak.<br/>Gerçek <b>OpenCascade B-Rep</b> çekirdeğiyle SolidWorks &amp; Cimatron uyumlu <b>.STEP</b> anında burada oluşur.</p>
+    <div class="grid-2">
+      <div class="field">
+        <label>Tezgâh / Stok Tipi</label>
+        <select id="camMachineType">
+          <option value="mill_box">CNC Freze — Kare / Prizmatik Kafes</option>
+          <option value="turn_cyl">CNC Torna — Silindirik Kütük</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Malzeme (Otomatik S/F)</label>
+        <select id="camMatPreset">
+          <option value="ss304">AISI 304 Paslanmaz</option>
+          <option value="steel4140">4140 Islah Çeliği</option>
+          <option value="al7075">Alüminyum 7075 / 6061</option>
+          <option value="ti64">Titanyum Ti-6Al-4V</option>
+        </select>
+      </div>
     </div>
 
-    <div class="hud-bottom">
-      <span class="hud-chip" id="hudPartName">Model bekleniyor...</span>
-      <span class="hud-chip">Sol Tık: Döndür · Sağ Tık: Kaydır · Tekerlek: Yakınlaştır</span>
+    <div class="grid-3">
+      <div class="field"><label>+X Stok (mm)</label><input id="stX" type="number" step="0.5" min="0" value="5" class="num" /></div>
+      <div class="field"><label>+Y Stok (mm)</label><input id="stY" type="number" step="0.5" min="0" value="5" class="num" /></div>
+      <div class="field"><label>+Z Stok (mm)</label><input id="stZ" type="number" step="0.5" min="0" value="3" class="num" /></div>
     </div>
-  </main>
+    <div class="grid-2">
+      <button type="button" class="btn sm" id="btnZeroStock">Sıfıra Sıfır (0 mm)</button>
+      <button type="button" class="btn sm" id="btnStdStock">Standart (+5/+5/+3)</button>
+    </div>
+
+    <div class="status-box num" id="stockSummaryBox">
+      Stok Ölçüsü: Model yüklendiğinde sıfıra sıfır kafes + X/Y/Z stok payı anlık hesaplanır.
+    </div>
+
+    <div class="sec-hd">
+      <span>4. İşleme Yöntemi &amp; Takım</span>
+      <span class="pill ok" id="cycleTimePill">0,0 dk</span>
+    </div>
+
+    <div class="field">
+      <label>İşleme Yöntemi (Strateji)</label>
+      <select id="camStrategy">
+        <option value="volumill">VoluMill Yüksek Hızlı Kaba (Trokoidal)</option>
+        <option value="zrough">Z-Seviye Kaba Boşaltma (Contour Rough)</option>
+        <option value="facemill">Yüzey Tarama (Face Mill)</option>
+        <option value="finish">Finiş Duvar / Profil (Contour Finish)</option>
+        <option value="drill">Delik Delme &amp; H7 Rayba (Drill Cycle)</option>
+      </select>
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label>Takım Çapı Ø (mm)</label>
+        <select id="camToolDia">
+          <option value="6">Ø6 mm Karbür Parmak Freze</option>
+          <option value="8">Ø8 mm Karbür Parmak Freze</option>
+          <option value="10" selected>Ø10 mm Karbür Parmak Freze</option>
+          <option value="12">Ø12 mm Karbür Parmak Freze</option>
+          <option value="16">Ø16 mm Karbür Parmak Freze</option>
+          <option value="20">Ø20 mm Kaba / Tarama</option>
+          <option value="50">Ø50 mm Yüzey Tarama Kafası</option>
+        </select>
+      </div>
+      <div class="field"><label>Ağız Sayısı (Z)</label><input id="camFlutes" type="number" min="1" max="8" value="4" class="num" /></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field"><label>Eksenel Paso ap (mm)</label><input id="camAp" type="number" step="0.5" min="0.2" value="4" class="num" /></div>
+      <div class="field"><label>Yana Kayma ae (mm)</label><input id="camAe" type="number" step="0.2" min="0.2" value="1.5" class="num" /></div>
+      <div class="field"><label>Devir S (RPM)</label><input id="camRpm" type="number" step="100" value="3200" class="num" /></div>
+      <div class="field"><label>İlerleme F (mm/dk)</label><input id="camFeed" type="number" step="50" value="680" class="num" /></div>
+    </div>
+
+    <button type="button" class="btn primary" id="btnGenToolpath" disabled>Takım Yolunu Oluştur &amp; 3D Göster</button>
+    <div class="grid-2">
+      <button type="button" class="btn amber" id="btnSimToggle" disabled>Simülasyon Oynat</button>
+      <button type="button" class="btn ok" id="btnExportNc" disabled>ISO G-Code (.nc)</button>
+    </div>
+
+    <div class="gcode-box num" id="gcodeBox"></div>
+  </aside>
 </div>
 
 <div class="zoom-modal" id="zoomModal" onclick="this.classList.remove('open')">
-  <img id="zoomImg" alt="Büyük PDF Önizleme" />
+  <img id="zoomImg" alt="Tam Ekran Teknik Resim" />
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
 <script>
-  // --- SolidWorks-Grade Three.js Studio Viewport ---
-  const vp = document.getElementById("viewport");
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+
+  // THREE.JS SCENE SETUP
+  const vp = $("viewport"), canvas = $("c3d");
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(42, vp.clientWidth / vp.clientHeight, 0.1, 5000);
-  camera.position.set(160, 120, 160);
-
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setSize(vp.clientWidth, vp.clientHeight);
-  renderer.setPixelRatio(window.devicePixelRatio || 1);
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.15;
-  vp.appendChild(renderer.domElement);
-
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 20000);
+  camera.position.set(160, 125, 165);
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.06;
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
 
-  // 3-Point CAD Studio Lighting
-  scene.add(new THREE.AmbientLight(0xdbeafe, 0.55));
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.05);
-  keyLight.position.set(220, 320, 200);
-  scene.add(keyLight);
-  const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.55);
-  fillLight.position.set(-220, 140, -180);
-  scene.add(fillLight);
-  const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.35);
-  rimLight.position.set(0, -180, 160);
-  scene.add(rimLight);
-
-  // Subtle CAD floor grid + XYZ axes
-  const grid = new THREE.GridHelper(300, 30, 0x334155, 0x1e293b);
-  grid.position.y = -0.1;
+  scene.add(new THREE.HemisphereLight(0xf1f5f9, 0x334155, 0.95));
+  const d1 = new THREE.DirectionalLight(0xffffff, 1.05); d1.position.set(220, 320, 200); scene.add(d1);
+  const d2 = new THREE.DirectionalLight(0x93c5fd, 0.45); d2.position.set(-200, -120, -180); scene.add(d2);
+  const grid = new THREE.GridHelper(400, 40, 0x334155, 0x1e293b);
   scene.add(grid);
-  const axes = new THREE.AxesHelper(45);
-  scene.add(axes);
 
-  let modelGroup = null;
-  let solidMesh = null;
-  let edgeLines = null;
-  let showEdges = true;
-  let wireMode = false;
-  let currentRadius = 80;
-  let currentBundle = null;
+  let partGroup = null, edgeMesh = null, stockGroup = null, toolpathGroup = null, cutterMesh = null;
+  let partBox = null; // THREE.Box3 in world coordinates (mm)
+  let simPoints = [], simRunning = false, simIdx = 0;
+  let currentBundle = null, lastGcode = "";
+  let showStock = true, showEdges = true;
+
+  function resize() {
+    const w = vp.clientWidth || 640, h = vp.clientHeight || 480;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", resize);
+  resize();
 
   function animate() {
     requestAnimationFrame(animate);
+    if (simRunning && cutterMesh && simPoints.length > 1) {
+      simIdx = (simIdx + 1) % simPoints.length;
+      const p = simPoints[simIdx];
+      cutterMesh.position.set(p.x, p.y, p.z);
+      cutterMesh.rotation.y += 0.45;
+    }
     controls.update();
     renderer.render(scene, camera);
   }
   animate();
 
-  window.addEventListener("resize", () => {
-    camera.aspect = vp.clientWidth / vp.clientHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(vp.clientWidth, vp.clientHeight);
-  });
+  // BUILD ZERO-TO-ZERO + X/Y/Z ALLOWANCE 3D STOCK MODEL CAGE!
+  function rebuildStockModel() {
+    if (stockGroup) { scene.remove(stockGroup); stockGroup = null; }
+    if (!partBox) return;
 
-  function fitCamera() {
-    const d = Math.max(currentRadius * 2.55, 50);
-    camera.position.set(d * 0.78, d * 0.62, d * 0.82);
-    controls.target.set(0, 0, 0);
-    controls.update();
+    const sx = Math.max(0, Number($("stX").value) || 0);
+    const sy = Math.max(0, Number($("stY").value) || 0);
+    const sz = Math.max(0, Number($("stZ").value) || 0);
+    const pSize = new THREE.Vector3(); partBox.getSize(pSize);
+    const pCenter = new THREE.Vector3(); partBox.getCenter(pCenter);
+    // Note: in Three.js Y is up (our Z height), X is width, Z is depth
+    const stockW = pSize.x + sx;
+    const stockD = pSize.z + sy;
+    const stockH = pSize.y + sz;
+
+    stockGroup = new THREE.Group();
+    const isCyl = $("camMachineType").value === "turn_cyl";
+    $("stockModePill").textContent = isCyl ? "Torna Silindiri" : "Freze Kafesi";
+
+    let geom;
+    if (isCyl) {
+      const r = Math.max(stockW, stockD) * 0.5;
+      geom = new THREE.CylinderGeometry(r, r, stockH, 48);
+    } else {
+      geom = new THREE.BoxGeometry(stockW, stockH, stockD);
+    }
+    const fillMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.13, depthWrite: false });
+    const wireMat = new THREE.LineBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.92 });
+    const fillMesh = new THREE.Mesh(geom, fillMat);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geom), wireMat);
+    stockGroup.add(fillMesh, edges);
+    stockGroup.position.set(pCenter.x, pCenter.y + sz * 0.25, pCenter.z);
+    stockGroup.visible = showStock;
+    scene.add(stockGroup);
+
+    const stockVolCm3 = isCyl
+      ? (Math.PI * Math.pow(Math.max(stockW, stockD) * 0.5, 2) * stockH) / 1000
+      : (stockW * stockD * stockH) / 1000;
+    const partVol = currentBundle?.stats?.volume_cm3 || (pSize.x * pSize.y * pSize.z / 1000 * 0.65);
+    const chipVol = Math.max(0, stockVolCm3 - partVol);
+    $("stockSummaryBox").innerHTML =
+      `<strong>Parça (0'a 0):</strong> ${pSize.x.toFixed(1)} × ${pSize.z.toFixed(1)} × ${pSize.y.toFixed(1)} mm<br>` +
+      `<strong>Stok Model (+${sx}/+${sy}/+${sz}):</strong> <strong>${stockW.toFixed(1)} × ${stockD.toFixed(1)} × ${stockH.toFixed(1)} mm</strong><br>` +
+      `Stok Hacmi: ${stockVolCm3.toFixed(1)} cm³ · Kaldırılacak Talaş: <strong>${chipVol.toFixed(1)} cm³</strong>`;
   }
 
-  function setCameraView(v) {
-    const d = Math.max(currentRadius * 2.6, 55);
-    if (v === "front") camera.position.set(0, 0, d);
-    else if (v === "top") camera.position.set(0, d, 0.01);
-    else if (v === "right") camera.position.set(d, 0, 0);
-    else camera.position.set(d * 0.78, d * 0.62, d * 0.82);
-    controls.target.set(0, 0, 0);
-    controls.update();
-  }
+  function loadStlInto3D(stlText) {
+    if (partGroup) { scene.remove(partGroup); partGroup = null; }
+    if (toolpathGroup) { scene.remove(toolpathGroup); toolpathGroup = null; }
+    if (cutterMesh) { scene.remove(cutterMesh); cutterMesh = null; }
+    simRunning = false; simPoints = [];
 
-  function toggleEdges() {
-    showEdges = !showEdges;
-    document.getElementById("btnEdges").classList.toggle("on", showEdges);
-    if (edgeLines) edgeLines.visible = showEdges;
-  }
-
-  function toggleWire() {
-    wireMode = !wireMode;
-    document.getElementById("btnWire").classList.toggle("on", wireMode);
-    if (solidMesh) solidMesh.material.wireframe = wireMode;
-  }
-
-  function renderSolidStl(stlText) {
-    if (modelGroup) scene.remove(modelGroup);
     const loader = new THREE.STLLoader();
     const geom = loader.parse(stlText);
     geom.computeVertexNormals();
-    geom.center();
-
-    // Rotate CAD Z-up to Three.js Y-up
+    // Convert CAD Z-up to Three.js Y-up cleanly
     geom.rotateX(-Math.PI / 2);
     geom.computeBoundingBox();
-    geom.computeBoundingSphere();
+    const bb = geom.boundingBox;
+    const ctr = new THREE.Vector3(); bb.getCenter(ctr);
+    geom.translate(-ctr.x, -bb.min.y, -ctr.z);
 
-    // Sit bottom neatly on floor grid
-    const minY = geom.boundingBox.min.y;
-    geom.translate(0, -minY, 0);
-    geom.computeBoundingSphere();
-    currentRadius = Math.max(geom.boundingSphere.radius, 15);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xb8c4d4, metalness: 0.42, roughness: 0.34 });
+    const mesh = new THREE.Mesh(geom, mat);
+    edgeMesh = new THREE.LineSegments(
+      new THREE.EdgesGeometry(geom, 24),
+      new THREE.LineBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.72 })
+    );
+    edgeMesh.visible = showEdges;
 
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0xb8c7d9,
-      metalness: 0.62,
-      roughness: 0.30,
-      wireframe: wireMode,
-      polygonOffset: true,
-      polygonOffsetFactor: 1,
-      polygonOffsetUnits: 1,
-    });
-    solidMesh = new THREE.Mesh(geom, mat);
+    partGroup = new THREE.Group();
+    partGroup.add(mesh, edgeMesh);
+    scene.add(partGroup);
 
-    const edgesGeom = new THREE.EdgesGeometry(geom, 24);
-    const edgesMat = new THREE.LineBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.75 });
-    edgeLines = new THREE.LineSegments(edgesGeom, edgesMat);
-    edgeLines.visible = showEdges;
+    partBox = new THREE.Box3().setFromObject(mesh);
+    $("vpEmpty").style.display = "none";
+    rebuildStockModel();
+    fitCamera();
 
-    modelGroup = new THREE.Group();
-    modelGroup.add(solidMesh, edgeLines);
-    scene.add(modelGroup);
+    $("btnGenToolpath").disabled = false;
+    $("btnRefine").disabled = false;
+  }
 
-    const cy = (geom.boundingBox.max.y - geom.boundingBox.min.y) * 0.5;
-    controls.target.set(0, cy, 0);
-    const d = Math.max(currentRadius * 2.55, 50);
-    camera.position.set(d * 0.78, cy + d * 0.52, d * 0.82);
+  window.fitCamera = () => {
+    if (!partBox) return;
+    const sz = new THREE.Vector3(); partBox.getSize(sz);
+    const ctr = new THREE.Vector3(); partBox.getCenter(ctr);
+    const maxD = Math.max(sz.x, sz.y, sz.z, 20);
+    camera.position.set(ctr.x + maxD * 1.45, ctr.y + maxD * 1.15, ctr.z + maxD * 1.45);
+    controls.target.copy(ctr);
     controls.update();
+  };
 
-    document.getElementById("emptyHint").classList.add("gone");
+  window.setCamView = (v, btn) => {
+    document.querySelectorAll(".vp-bar .vp-btn").forEach((b, i) => { if (i < 4) b.classList.remove("active"); });
+    if (btn) btn.classList.add("active");
+    if (!partBox) return;
+    const sz = new THREE.Vector3(); partBox.getSize(sz);
+    const ctr = new THREE.Vector3(); partBox.getCenter(ctr);
+    const d = Math.max(sz.x, sz.y, sz.z, 30) * 1.85;
+    if (v === "front") camera.position.set(ctr.x, ctr.y, ctr.z + d);
+    else if (v === "top") camera.position.set(ctr.x, ctr.y + d, ctr.z + 0.01);
+    else if (v === "right") camera.position.set(ctr.x + d, ctr.y, ctr.z);
+    else camera.position.set(ctr.x + d * 0.78, ctr.y + d * 0.65, ctr.z + d * 0.78);
+    controls.target.copy(ctr); controls.update();
+  };
+
+  window.toggleStockCage = (btn) => { showStock = !showStock; if (stockGroup) stockGroup.visible = showStock; btn.classList.toggle("active", showStock); };
+  window.toggleEdges = (btn) => { showEdges = !showEdges; if (edgeMesh) edgeMesh.visible = showEdges; btn.classList.toggle("active", showEdges); };
+
+  // MATERIAL CUTTING SPEED PRESETS -> AUTO S (RPM) & F (mm/min)
+  const MAT_CUT = {
+    ss304:     { vc: 95,  fz: 0.045, apFactor: 0.45, aeFactor: 0.14 },
+    steel4140: { vc: 135, fz: 0.055, apFactor: 0.60, aeFactor: 0.16 },
+    al7075:    { vc: 320, fz: 0.085, apFactor: 1.20, aeFactor: 0.22 },
+    ti64:      { vc: 55,  fz: 0.035, apFactor: 0.35, aeFactor: 0.10 },
+  };
+  function updateCuttingParams() {
+    const m = MAT_CUT[$("camMatPreset").value] || MAT_CUT.ss304;
+    const D = Math.max(2, Number($("camToolDia").value) || 10);
+    const Z = Math.max(1, Number($("camFlutes").value) || 4);
+    const rpm = Math.round((1000 * m.vc) / (Math.PI * D) / 50) * 50;
+    const feed = Math.round((rpm * Z * m.fz) / 10) * 10;
+    $("camRpm").value = Math.min(18000, Math.max(600, rpm));
+    $("camFeed").value = Math.min(8000, Math.max(120, feed));
+    $("camAp").value = Math.max(0.5, Number((D * m.apFactor).toFixed(1)));
+    $("camAe").value = Math.max(0.4, Number((D * m.aeFactor).toFixed(1)));
   }
+  $("camMatPreset").onchange = updateCuttingParams;
+  $("camToolDia").onchange = updateCuttingParams;
+  $("camFlutes").onchange = updateCuttingParams;
 
-  function setPipelineStep(activeIdx) {
-    document.getElementById("stepsList").style.display = "flex";
-    for (let i = 1; i <= 4; i++) {
-      const el = document.getElementById("st" + i);
-      el.className = "step-item" + (i < activeIdx ? " done" : i === activeIdx ? " active" : "");
-      el.textContent = (i < activeIdx ? "✅ " : i === activeIdx ? "⏳ " : "○ ") + el.textContent.replace(/^[○⏳✅]\s*/, "");
+  // GENERATE REAL 3D TOOLPATHS AROUND STOCK MODEL & REAL ISO G-CODE!
+  function generateToolpathAndGcode() {
+    if (!partBox) return;
+    if (toolpathGroup) { scene.remove(toolpathGroup); toolpathGroup = null; }
+    if (cutterMesh) { scene.remove(cutterMesh); cutterMesh = null; }
+
+    const sx = Math.max(0, Number($("stX").value) || 0);
+    const sy = Math.max(0, Number($("stY").value) || 0);
+    const sz = Math.max(0, Number($("stZ").value) || 0);
+    const D = Math.max(2, Number($("camToolDia").value) || 10);
+    const R = D * 0.5;
+    const ap = Math.max(0.5, Number($("camAp").value) || 4);
+    const ae = Math.max(0.5, Number($("camAe").value) || 2);
+    const rpm = Math.max(500, Number($("camRpm").value) || 3000);
+    const feed = Math.max(80, Number($("camFeed").value) || 600);
+    const strat = $("camStrategy").value;
+
+    const pSize = new THREE.Vector3(); partBox.getSize(pSize);
+    const pCtr = new THREE.Vector3(); partBox.getCenter(pCtr);
+    const halfX = (pSize.x + sx) * 0.5 + R * 0.6;
+    const halfZ = (pSize.z + sy) * 0.5 + R * 0.6;
+    const topY = partBox.max.y + sz * 0.5;
+    const botY = partBox.min.y;
+    const safeY = topY + 12;
+
+    const cutPts = [];
+    const rapidPts = [];
+    simPoints = [];
+    const gcode = [
+      `%`,
+      `O7500 (${(currentBundle?.part_name || "BAHAWORKS_PART").toUpperCase()})`,
+      `(STRATEJI: ${strat.toUpperCase()} | TAKIM: D${D} Z${$("camFlutes").value} | STOK: +${sx}/+${sy}/+${sz} MM)`,
+      `G21 G90 G17 G40 G49 G80`,
+      `T01 M06`,
+      `S${rpm} M03`,
+      `M08`,
+      `G00 X${(-halfX).toFixed(2)} Y${(-halfZ).toFixed(2)}`,
+      `G00 Z${safeY.toFixed(2)}`,
+    ];
+
+    const levels = strat === "facemill" ? 1 : Math.min(18, Math.max(1, Math.ceil((topY - botY) / ap)));
+    let totalDistMm = 0;
+    let prevPt = new THREE.Vector3(-halfX, safeY, -halfZ);
+
+    for (let lv = 0; lv < levels; lv++) {
+      const y = Math.max(botY + 0.5, topY - (lv + 1) * ((topY - botY) / levels));
+      const gZ = (y - topY).toFixed(2);
+      const startPt = new THREE.Vector3(-halfX, y, -halfZ);
+      rapidPts.push(prevPt.clone(), new THREE.Vector3(startPt.x, safeY, startPt.z), startPt.clone());
+      gcode.push(`G00 Z${safeY.toFixed(2)}`);
+      gcode.push(`G00 X${startPt.x.toFixed(2)} Y${startPt.z.toFixed(2)}`);
+      gcode.push(`G01 Z${gZ} F${Math.round(feed * 0.35)}`);
+
+      const ring = [];
+      if (strat === "volumill" || strat === "facemill") {
+        // Trochoidal / zigzag high-speed stepover lanes across the stock box
+        const step = Math.max(ae * 2.2, 4);
+        let dir = 1;
+        for (let z = -halfZ; z <= halfZ + 0.1; z += step) {
+          const xA = dir > 0 ? -halfX : halfX;
+          const xB = dir > 0 ? halfX : -halfX;
+          if (strat === "volumill") {
+            const segs = 12;
+            for (let k = 0; k <= segs; k++) {
+              const t = k / segs;
+              const px = xA + (xB - xA) * t;
+              const pz = z + Math.sin(t * Math.PI * 6) * Math.min(ae * 0.7, 2.2);
+              ring.push(new THREE.Vector3(px, y, pz));
+            }
+          } else {
+            ring.push(new THREE.Vector3(xA, y, z), new THREE.Vector3(xB, y, z));
+          }
+          dir *= -1;
+        }
+      } else if (strat === "drill") {
+        // Peck drilling points at quadrant/center offsets
+        const pts = [[0,0], [-pSize.x*0.3, 0], [pSize.x*0.3, 0], [0, -pSize.z*0.3], [0, pSize.z*0.3]];
+        pts.forEach(([px, pz]) => {
+          rapidPts.push(new THREE.Vector3(px, safeY, pz), new THREE.Vector3(px, botY, pz));
+          gcode.push(`G83 X${px.toFixed(2)} Y${pz.toFixed(2)} Z${(botY - topY).toFixed(2)} R2.0 Q${ap.toFixed(1)} F${Math.round(feed * 0.3)}`);
+          simPoints.push(new THREE.Vector3(px, safeY, pz), new THREE.Vector3(px, botY, pz), new THREE.Vector3(px, safeY, pz));
+        });
+        gcode.push(`G80`);
+        break;
+      } else {
+        // Contour rough / finish perimeter offset loops
+        const loops = strat === "finish" ? 1 : 2;
+        for (let lp = 0; lp < loops; lp++) {
+          const ox = halfX - lp * ae;
+          const oz = halfZ - lp * ae;
+          if (ox <= 2 || oz <= 2) break;
+          ring.push(
+            new THREE.Vector3(-ox, y, -oz),
+            new THREE.Vector3(ox, y, -oz),
+            new THREE.Vector3(ox, y, oz),
+            new THREE.Vector3(-ox, y, oz),
+            new THREE.Vector3(-ox, y, -oz)
+          );
+        }
+      }
+
+      for (let i = 0; i < ring.length; i++) {
+        const pt = ring[i];
+        if (i > 0) {
+          cutPts.push(ring[i - 1], pt);
+          totalDistMm += ring[i - 1].distanceTo(pt);
+        }
+        simPoints.push(pt);
+        if (gcode.length < 180) gcode.push(`G01 X${pt.x.toFixed(2)} Y${pt.z.toFixed(2)} F${feed}`);
+        prevPt = pt;
+      }
     }
-  }
+    gcode.push(`G00 Z${(safeY + 15).toFixed(2)}`, `M05`, `M09`, `G28 G91 Z0`, `M30`, `%`);
+    lastGcode = gcode.join("\n");
 
-  function downloadBlob(filename, text, mime) {
-    const blob = new Blob([text], { type: mime });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 300);
-  }
-
-  function applyResult(data) {
-    currentBundle = data;
-    setPipelineStep(5);
-
-    const card = document.getElementById("statusCard");
-    card.className = "status-card ok";
-    document.getElementById("statusText").innerHTML =
-      `✅ <b>${data.part_name}</b> hazır! (${data.engine})<br>` +
-      `<span style="color:#94a3b8;font-size:11px;">${data.engineering_notes || ""}</span>`;
-
-    if (data.preview_png_b64) {
-      document.getElementById("pdfPreviewImg").src = data.preview_png_b64;
-      document.getElementById("zoomImg").src = data.preview_png_b64;
-      document.getElementById("pdfPreviewWrap").classList.add("show");
+    toolpathGroup = new THREE.Group();
+    if (cutPts.length) {
+      const g1 = new THREE.BufferGeometry().setFromPoints(cutPts);
+      toolpathGroup.add(new THREE.LineSegments(g1, new THREE.LineBasicMaterial({ color: 0x38bdf8 })));
     }
-
-    const st = data.stats || {};
-    document.getElementById("specsGrid").style.display = "grid";
-    document.getElementById("spBbox").textContent = (st.bbox_mm || [0,0,0]).map(x => Number(x).toFixed(1)).join(" × ");
-    document.getElementById("spVol").textContent = (st.volume_cm3 ?? 0) + " cm³";
-    document.getElementById("spMass").textContent = (st.mass_kg ?? 0) + " kg (" + (data.material || "Çelik") + ")";
-    document.getElementById("spTopo").textContent = (st.faces || "-") + " yüzey / " + (st.edges || "-") + " kenar";
-    document.getElementById("hudPartName").textContent = `📐 ${data.part_name} • ${document.getElementById("spBbox").textContent} mm • Gerçek AP214 .STEP`;
-
-    document.getElementById("btnDownloadStep").disabled = false;
-    document.getElementById("btnSendCam").disabled = false;
-    document.getElementById("btnDownloadStl").disabled = false;
-    document.getElementById("btnDownloadPy").disabled = !data.python_code;
-    document.getElementById("refineWrap").style.display = "block";
-    if (data.python_code) {
-      document.getElementById("codePre").textContent = data.python_code;
-      document.getElementById("codeWrap").style.display = "block";
+    if (rapidPts.length) {
+      const g2 = new THREE.BufferGeometry().setFromPoints(rapidPts);
+      toolpathGroup.add(new THREE.LineSegments(g2, new THREE.LineBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.65 })));
     }
+    scene.add(toolpathGroup);
 
-    renderSolidStl(data.stl_content);
+    // 3D Carbide Endmill Cutter for live simulation
+    const cGeom = new THREE.CylinderGeometry(R, R, Math.max(D * 3, 28), 24);
+    cGeom.translate(0, Math.max(D * 1.5, 14), 0);
+    cutterMesh = new THREE.Mesh(cGeom, new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8, roughness: 0.2 }));
+    if (simPoints[0]) cutterMesh.position.copy(simPoints[0]);
+    scene.add(cutterMesh);
+
+    const mins = Math.max(0.5, totalDistMm / feed + levels * 0.15);
+    $("cycleTimePill").textContent = `${mins.toFixed(1)} dk`;
+    $("gcodeBox").textContent = lastGcode;
+    $("gcodeBox").classList.add("show");
+    $("btnSimToggle").disabled = false;
+    $("btnExportNc").disabled = false;
+    simRunning = true; simIdx = 0;
+    $("btnSimToggle").textContent = "Simülasyonu Durdur";
   }
 
-  async function convertPdfFile(file) {
-    if (!file) return;
-    document.getElementById("pdfFileName").textContent = file.name;
-    const card = document.getElementById("statusCard");
-    card.className = "status-card";
-    document.getElementById("statusText").innerHTML = `⏳ <b>${file.name}</b> analiz ediliyor ve OpenCascade B-Rep 3D STEP üretiliyor...`;
-    setPipelineStep(1);
-
+  // UPLOAD & CALL OPENCASCADE OCCT 8.0 WORKER (STEP IMPORT OR PDF->STEP)
+  async function processUpload(file) {
+    const sb = $("statusBox");
+    sb.className = "status-box";
+    sb.innerHTML = `<strong>${file.name}</strong> işleniyor... OpenCascade OCCT 8.0 B-Rep çekirdeği modeli oluşturuyor...`;
     const reader = new FileReader();
     reader.onload = async () => {
-      setTimeout(() => setPipelineStep(2), 700);
-      setTimeout(() => setPipelineStep(3), 4500);
       try {
-        const res = await fetch("/api/pdf2step", {
+        const r = await fetch("/api/pdf2step", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name, file_b64: reader.result }),
+          body: JSON.stringify({ filename: file.name, file_b64: reader.result })
         });
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.error || "Dönüştürme başarısız");
-        applyResult(data);
+        const d = await r.json();
+        if (!d.ok) throw new Error(d.error || "B-Rep dönüşüm hatası");
+        currentBundle = d;
+
+        if (d.preview_png_b64) {
+          $("previewImg").src = d.preview_png_b64;
+          $("zoomImg").src = d.preview_png_b64;
+          $("previewName").textContent = file.name;
+          $("previewBox").classList.add("show");
+        }
+        if (d.stl_content) loadStlInto3D(d.stl_content);
+
+        const st = d.stats || {};
+        const bb = st.bbox_mm || [0, 0, 0];
+        $("spBbox").textContent = `${bb[0]}×${bb[1]}×${bb[2]}`;
+        $("spVol").textContent = `${st.volume_cm3 || 0} cm³`;
+        $("spTopo").textContent = `${st.faces || 0} / ${st.edges || 0}`;
+        $("spMass").textContent = `${st.mass_kg || 0} kg`;
+        $("specsGrid").style.display = "grid";
+
+        sb.className = "status-box ok";
+        sb.innerHTML = `<strong>${d.part_name}</strong> (${d.engine})<br>${d.engineering_notes || ""}`;
+        $("hudLeft").textContent = `${d.part_name} · ${bb[0]}×${bb[1]}×${bb[2]} mm`;
+        $("btnDownloadStep").disabled = !d.step_content;
+        $("btnDownloadStl").disabled = !d.stl_content;
       } catch (err) {
-        card.className = "status-card err";
-        document.getElementById("statusText").textContent = "❌ Hata: " + err.message;
+        sb.className = "status-box err";
+        sb.textContent = "Hata: " + err.message;
       }
     };
     reader.readAsDataURL(file);
   }
 
-  async function refineModel() {
-    const instr = document.getElementById("refineInput").value.trim();
+  // PROMPT-BASED 3D STEP MODIFICATION ("15 çapındaki deliği 25 yap", "X:40 Y:20 Ø10 delik")
+  async function runPromptRefine() {
+    const instr = $("refineInput").value.trim();
     if (!instr || !currentBundle) return;
-    const card = document.getElementById("statusCard");
-    card.className = "status-card";
-    document.getElementById("statusText").innerHTML = `⏳ Revizyon uygulanıyor: <i>"${instr}"</i>...`;
-    setPipelineStep(2);
+    const sb = $("statusBox");
+    sb.className = "status-box";
+    sb.textContent = `Prompt revizyonu OpenCascade B-Rep modeline uygulanıyor: "${instr}"...`;
+    $("btnRefine").disabled = true;
     try {
-      const res = await fetch("/api/refine-step", {
+      const r = await fetch("/api/refine-step", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           instruction: instr,
           previous_code: currentBundle.python_code || "",
           preview_png_b64: currentBundle.preview_png_b64 || "",
-          part_name: currentBundle.part_name || "Parca",
-          material: currentBundle.material || "Çelik 4140",
-        }),
+          part_name: currentBundle.part_name || "Revizyon"
+        })
       });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Revizyon hatası");
-      document.getElementById("refineInput").value = "";
-      applyResult(data);
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || "Revizyon uygulanamadı");
+      currentBundle = d;
+      if (d.stl_content) loadStlInto3D(d.stl_content);
+      const st = d.stats || {};
+      const bb = st.bbox_mm || [0, 0, 0];
+      $("spBbox").textContent = `${bb[0]}×${bb[1]}×${bb[2]}`;
+      $("spVol").textContent = `${st.volume_cm3 || 0} cm³`;
+      $("spTopo").textContent = `${st.faces || 0} / ${st.edges || 0}`;
+      $("spMass").textContent = `${st.mass_kg || 0} kg`;
+      sb.className = "status-box ok";
+      sb.innerHTML = `<strong>Revizyon uygulandı:</strong> ${d.engineering_notes || instr}`;
+      $("refineInput").value = "";
     } catch (err) {
-      card.className = "status-card err";
-      document.getElementById("statusText").textContent = "❌ Revizyon hatası: " + err.message;
+      sb.className = "status-box err";
+      sb.textContent = "Revizyon hatası: " + err.message;
+    } finally {
+      $("btnRefine").disabled = false;
     }
   }
 
-  // Wire dropzones (both left dropzone AND whole 3D viewport accept PDF drops!)
-  const dz = document.getElementById("dropzone");
-  const fi = document.getElementById("fileInput");
-  dz.onclick = () => fi.click();
-  fi.onchange = (e) => { if (e.target.files?.[0]) convertPdfFile(e.target.files[0]); fi.value = ""; };
+  // EVENTS
+  window.addEventListener("dragover", e => e.preventDefault(), false);
+  window.addEventListener("drop", e => e.preventDefault(), false);
+  const dz = $("dropzone"), fi = $("fileInput");
+  dz.onclick = () => { fi.value = ""; fi.click(); };
+  dz.ondragover = e => { e.preventDefault(); dz.classList.add("drag"); };
+  dz.ondragleave = () => dz.classList.remove("drag");
+  dz.ondrop = e => { e.preventDefault(); dz.classList.remove("drag"); if (e.dataTransfer?.files?.[0]) processUpload(e.dataTransfer.files[0]); };
+  fi.onchange = () => { if (fi.files?.[0]) processUpload(fi.files[0]); };
 
-  [dz, document.getElementById("stageDrop")].forEach((zone) => {
-    zone.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("dragover"); });
-    zone.addEventListener("dragleave", () => dz.classList.remove("dragover"));
-    zone.addEventListener("drop", (e) => {
-      e.preventDefault();
-      dz.classList.remove("dragover");
-      const f = e.dataTransfer?.files?.[0];
-      if (f) convertPdfFile(f);
-    });
-  });
+  $("previewImg").onclick = () => { if ($("zoomImg").src) $("zoomModal").classList.add("open"); };
+  document.querySelectorAll(".chip[data-cmd]").forEach(c => c.onclick = () => { $("refineInput").value = c.dataset.cmd; });
+  $("btnRefine").onclick = runPromptRefine;
+  $("refineInput").addEventListener("keydown", e => { if (e.key === "Enter") runPromptRefine(); });
 
-  document.getElementById("pdfPreviewImg").onclick = () => document.getElementById("zoomModal").classList.add("open");
-  document.getElementById("btnRefine").onclick = refineModel;
-  document.getElementById("refineInput").onkeypress = (e) => { if (e.key === "Enter") refineModel(); };
+  ["stX", "stY", "stZ", "camMachineType"].forEach(id => $(id).addEventListener("input", rebuildStockModel));
+  $("camMachineType").addEventListener("change", rebuildStockModel);
+  $("btnZeroStock").onclick = () => { $("stX").value = 0; $("stY").value = 0; $("stZ").value = 0; rebuildStockModel(); };
+  $("btnStdStock").onclick = () => { $("stX").value = 5; $("stY").value = 5; $("stZ").value = 3; rebuildStockModel(); };
+  $("btnGenToolpath").onclick = generateToolpathAndGcode;
+  $("btnSimToggle").onclick = () => {
+    simRunning = !simRunning;
+    $("btnSimToggle").textContent = simRunning ? "Simülasyonu Durdur" : "Simülasyon Oynat";
+  };
 
-  document.getElementById("btnDownloadStep").onclick = () => {
-    if (!currentBundle) return;
-    downloadBlob(currentBundle.filename_base + ".step", currentBundle.step_content, "application/step");
-  };
-  document.getElementById("btnDownloadStl").onclick = () => {
-    if (!currentBundle) return;
-    downloadBlob(currentBundle.filename_base + ".stl", currentBundle.stl_content, "application/sla");
-  };
-  document.getElementById("btnDownloadPy").onclick = () => {
-    if (!currentBundle?.python_code) return;
-    downloadBlob(currentBundle.filename_base + "_build123d.py", currentBundle.python_code, "text/x-python");
-  };
-  document.getElementById("btnSendCam").onclick = () => {
-    if (!currentBundle) return;
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({
-        type: "BAHACAD_TO_BAHACAM_STL",
-        partName: currentBundle.part_name,
-        material: currentBundle.material,
-        stlContent: currentBundle.stl_content,
-      }, "*");
-    } else {
-      downloadBlob(currentBundle.filename_base + ".stl", currentBundle.stl_content, "application/sla");
-    }
-  };
+  function dlFile(name, content, mime) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([content], { type: mime }));
+    a.download = name; a.click();
+  }
+  $("btnDownloadStep").onclick = () => currentBundle?.step_content && dlFile(`${currentBundle.filename_base || "BahaWorks"}.step`, currentBundle.step_content, "application/step");
+  $("btnDownloadStl").onclick = () => currentBundle?.stl_content && dlFile(`${currentBundle.filename_base || "BahaWorks"}.stl`, currentBundle.stl_content, "model/stl");
+  $("btnExportNc").onclick = () => lastGcode && dlFile(`${currentBundle?.filename_base || "BahaWorks"}_${$("camStrategy").value}.nc`, lastGcode, "text/plain");
+
+  updateCuttingParams();
+})();
 </script>
 </body>
 </html>
