@@ -195,14 +195,46 @@
   .dz-icon svg { width: 19px; height: 19px; stroke: currentColor; stroke-width: 1.8; fill: none; }
   .dz-title { font-size: 13.5px; font-weight: 650; color: var(--ink); }
   .dz-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .preview-bar {
-    display: none; align-items: center; gap: 14px; padding: 12px 14px;
-    border-radius: 11px; background: rgba(255, 255, 255, 0.72);
-    border: 1px solid var(--border); margin-bottom: 16px;
+  .preview-stage {
+    display: none; flex-direction: column; align-items: center; gap: 12px;
+    padding: 18px 20px; border-radius: 14px;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
   }
-  .preview-bar.show { display: flex; }
-  .preview-thumb { width: 96px; height: 68px; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 7px; flex-shrink: 0; }
-  .preview-note { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+  .preview-stage.show { display: flex; }
+  .preview-stage-head {
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .preview-canvas-wrap {
+    width: 100%; min-height: 280px; max-height: 410px;
+    background: #ffffff; border: 1px solid rgba(15, 23, 42, 0.09); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    cursor: zoom-in; padding: 10px;
+  }
+  .preview-canvas-wrap img {
+    max-width: 100%; max-height: 386px; width: auto; height: auto; object-fit: contain;
+    display: block;
+  }
+  .preview-note { width: 100%; font-size: 12.5px; line-height: 1.55; color: var(--ink-2); background: #f8fafc; border: 1px solid var(--border); border-radius: 9px; padding: 10px 13px; }
+  .formula-bar {
+    margin-top: 10px; padding: 10px 13px; border-radius: 9px;
+    background: rgba(29, 78, 216, 0.055); border: 1px solid rgba(29, 78, 216, 0.14);
+    font-size: 12px; color: var(--ink); line-height: 1.5;
+  }
+  .zoom-modal {
+    position: fixed; inset: 0; z-index: 9999; display: none;
+    background: rgba(15, 23, 42, 0.72); backdrop-filter: blur(10px);
+    align-items: center; justify-content: center; padding: 28px;
+  }
+  .zoom-modal.open { display: flex; }
+  .zoom-inner {
+    background: #fff; border-radius: 14px; max-width: 94vw; max-height: 92vh;
+    padding: 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+  }
+  .zoom-inner img { max-width: 90vw; max-height: 82vh; object-fit: contain; display: block; }
 
   /* SEGMENTED CONTROL */
   .seg {
@@ -402,6 +434,24 @@
         </div>
       </div>
 
+      <!-- CENTERED LARGE TECHNICAL DRAWING PREVIEW STAGE (PDF / STEP / PNG / JPG / SKETCH) -->
+      <div class="preview-stage" id="previewStage">
+        <div class="preview-stage-head">
+          <div>
+            <div style="font-size:13.5px;font-weight:700;color:var(--ink);" id="previewFileLabel">Seçilen Teknik Resim</div>
+            <div style="font-size:12px;color:var(--muted);" id="previewMetaLabel">Tam boyutlu doğrulama önizlemesi — büyütmek için görsele tıklayın</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button type="button" class="btn sm" id="btnZoomOpen">Tam Ekran İncele</button>
+            <button type="button" class="btn sm" id="btnPickAnother">Başka Dosya Seç</button>
+          </div>
+        </div>
+        <div class="preview-canvas-wrap" id="previewWrap">
+          <img id="previewImg" alt="Teknik Resim Önizleme" />
+        </div>
+        <div class="preview-note" id="previewNote"></div>
+      </div>
+
       <div class="split-2">
         <!-- LEFT: DRAWING + PARAMETERS -->
         <div class="card">
@@ -416,22 +466,17 @@
           </div>
 
           <div class="dropzone" id="dropzone">
-            <input type="file" id="fileInp" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*" style="display:none" />
+            <input type="file" id="fileInp" accept=".pdf,.step,.stp,.stl,.png,.jpg,.jpeg,.webp,.heic,.heif,application/pdf,image/*" style="display:none" />
             <div class="dz-left">
               <div class="dz-icon">
                 <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               </div>
               <div>
-                <div class="dz-title" id="dzTitle">Teknik resim PDF veya görsel yükleyin</div>
-                <div class="dz-sub" id="dzSub">Antet, malzeme kodu, ham kütük ölçüsü, adet ve toleranslar otomatik okunur</div>
+                <div class="dz-title" id="dzTitle">PDF, STEP, JPG, PNG veya karakalem çizim fotoğrafı yükleyin</div>
+                <div class="dz-sub" id="dzSub">Dosya yukarıda tam ortada büyük önizleme ile açılır; ölçüler, malzeme ve özkütle otomatik hesaplanır</div>
               </div>
             </div>
             <button type="button" class="btn sm" id="btnPickFile">Dosya Seç</button>
-          </div>
-
-          <div class="preview-bar" id="previewBar">
-            <img id="previewImg" class="preview-thumb" alt="Teknik Resim" />
-            <div class="preview-note" id="previewNote"></div>
           </div>
 
           <div class="section-label">Müşteri ve Parça Bilgileri</div>
@@ -444,30 +489,25 @@
             <div class="field"><label>Tolerans</label><input id="fTol" value="ISO 2768-fH-E · Ø15 H7" /></div>
           </div>
 
-          <div class="section-label">Malzeme ve Kütük</div>
+          <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>Malzeme, Özkütle (g/cm³) ve Kütük Hesabı</span>
+            <button type="button" class="btn sm ghost" id="btnSaveAlloyDefaults" style="height:24px;font-size:11px;color:var(--accent);">Bu Özkütle &amp; Fiyatı Kaydet</button>
+          </div>
           <div class="form-3">
             <div class="field">
-              <label>Alaşım</label>
-              <select id="fMatKey">
-                <option value="ss304">AISI 304 · 1.4301 (7.93)</option>
-                <option value="ss316">AISI 316L · 1.4404 (7.98)</option>
-                <option value="steel4140">4140 · 42CrMo4 (7.85)</option>
-                <option value="st37">St37 · S235JR (7.85)</option>
-                <option value="al7075">Alüminyum 7075-T6 (2.81)</option>
-                <option value="al6061">Alüminyum 6061-T6 (2.70)</option>
-                <option value="ti64">Titanyum Ti-6Al-4V (4.43)</option>
-                <option value="brass">Pirinç MS58 (8.47)</option>
-                <option value="pom">Delrin / POM (1.41)</option>
-              </select>
+              <label>Malzeme / Alaşım</label>
+              <select id="fMatKey"></select>
             </div>
-            <div class="field" id="wDirectMat" style="display:none"><label>Parça Başı Malzeme (₺)</label><input id="fDirectMat" type="number" step="10" value="1608" class="num" /></div>
+            <div class="field"><label>Özkütle (g/cm³ — Düzenlenebilir)</label><input id="fDensity" type="number" step="0.01" value="7.93" class="num" /></div>
+            <div class="field" id="wKgPrice"><label>Malzeme Fiyatı (₺/kg — Düzenlenebilir)</label><input id="fKgPrice" type="number" step="5" value="245" class="num" /></div>
+
+            <div class="field" id="wDirectMat" style="display:none"><label>Parça Başı Malzeme Bedeli (₺/adet)</label><input id="fDirectMat" type="number" step="10" value="1608" class="num" /></div>
             <div class="field" id="wGrams" style="display:none"><label>Net Ağırlık (gram)</label><input id="fGrams" type="number" step="10" value="2310" class="num" /></div>
-            <div class="field" id="wKgPrice"><label>Kg Birim Fiyatı (₺/kg)</label><input id="fKgPrice" type="number" step="5" value="245" class="num" /></div>
             <div class="field" id="wShape">
               <label>Kütük Formu</label>
               <select id="fShape">
-                <option value="prismatic">Prizmatik (X × Y × Z)</option>
-                <option value="cylindrical">Silindirik (ØD × Boy)</option>
+                <option value="prismatic">Prizmatik (Genişlik × Derinlik × Uzunluk)</option>
+                <option value="cylindrical">Silindirik (Dış Çap ØD × Uzunluk)</option>
               </select>
             </div>
             <div class="field" id="wDimD" style="display:none"><label>Dış Çap ØD (mm)</label><input id="fDimD" type="number" step="0.5" value="60" class="num" /></div>
@@ -476,6 +516,7 @@
             <div class="field" id="wDimZ"><label>Uzunluk Z (mm)</label><input id="fDimZ" type="number" step="0.5" value="182.5" class="num" /></div>
             <div class="field" id="wScrap"><label>Kesim / Fire Payı (%)</label><input id="fScrap" type="number" step="1" value="8" class="num" /></div>
           </div>
+          <div class="formula-bar num" id="materialFormulaBar"></div>
 
           <div class="section-label">İşçilik, Tezgâh ve Kâr Marjı</div>
           <div class="form-3">
@@ -588,8 +629,9 @@
           <p class="page-sub">Onaylanan tekliflerden tek adımda UBL-TR 1.2 XML, muhasebe aktarımı ve resmi A4 fatura oluşturun</p>
         </div>
         <div class="head-actions">
-          <button type="button" class="btn" id="btnInvXml">UBL-TR 1.2 XML İndir</button>
-          <button type="button" class="btn" id="btnInvErp">Logo / Mikro CSV</button>
+          <button type="button" class="btn" id="btnOpenInvPreview">Faturayı Aç (Önizle)</button>
+          <button type="button" class="btn" id="btnInvXml" title="GİB e-Fatura/e-Arşiv portalına yüklenecek resmi XML dosyası">GİB XML İndir</button>
+          <button type="button" class="btn" id="btnInvErp" title="Mali müşavir Logo veya Mikro muhasebe aktarım tablosu">Logo / Mikro Tablo</button>
           <button type="button" class="btn primary" id="btnInvSave">Faturayı Kes &amp; Kaydet</button>
         </div>
       </div>
@@ -637,14 +679,14 @@
         <div class="card">
           <div class="card-head">
             <div class="card-title">Fatura Özeti ve GİB Doğrulama</div>
-            <button type="button" class="btn sm" onclick="window.print()">A4 Yazdır</button>
+            <button type="button" class="btn sm" id="btnPrintInvoice">A4 PDF Çıkar</button>
           </div>
           <div class="breakdown num" id="invSummaryBox"></div>
           <div class="banner ok show" id="invCheckBanner">UBL-TR 1.2 şema alanları (VKN, ETTN, KDV kırılımı ve satıcı bilgileri) GİB e-Fatura portalına ve özel entegratörlere aktarıma uygundur.</div>
-          <div class="section-label">Kesilen Faturalar</div>
+          <div class="section-label">Kesilen Faturalar (Yerel Arşiv)</div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Fatura No</th><th>Alıcı</th><th>Toplam</th><th>Senaryo</th></tr></thead>
+              <thead><tr><th>Fatura No</th><th>Alıcı</th><th>Toplam</th><th>Senaryo</th><th>İşlem</th></tr></thead>
               <tbody id="invTbody"></tbody>
             </table>
           </div>
@@ -698,25 +740,100 @@
           </p>
         </div>
       </div>
+      <div class="card" style="margin-top:20px;">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Malzeme Özkütle (g/cm³) ve Birim Fiyat (₺/kg) Veritabanı</div>
+            <div class="card-meta">Burada yaptığınız özkütle veya fiyat güncellemeleri tüm kütük ve teklif hesaplarına anında yansır</div>
+          </div>
+          <button type="button" class="btn sm primary" id="btnSaveAlloyTable">Tabloyu Kaydet</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Malzeme / Alaşım</th><th>Özkütle (g/cm³)</th><th>Birim Fiyat (₺/kg)</th></tr></thead>
+            <tbody id="alloyTableBody"></tbody>
+          </table>
+        </div>
+      </div>
     </section>
   </main>
+</div>
+
+<!-- FULL-SCREEN DRAWING ZOOM LIGHTBOX -->
+<div class="zoom-modal" id="zoomModal">
+  <div class="zoom-inner">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <strong id="zoomTitle" style="font-size:13.5px;color:var(--ink);">Teknik Resim İnceleme</strong>
+      <button type="button" class="btn sm" id="btnZoomClose">Kapat (Esc)</button>
+    </div>
+    <img id="zoomImg" alt="Tam Ekran Teknik Resim" />
+  </div>
+</div>
+
+<!-- IN-APP EMBEDDED A4 DOCUMENT PREVIEW MODAL (NEVER LEAVES THE APP!) -->
+<div class="zoom-modal" id="docModal">
+  <div class="zoom-inner" style="width:860px;max-width:95vw;height:90vh;max-height:92vh;background:#f8fafc;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:6px;border-bottom:1px solid var(--border);">
+      <div>
+        <strong id="docModalTitle" style="font-size:14px;color:var(--ink);">A4 Belge Önizleme</strong>
+        <div id="docModalStatus" style="font-size:11.5px;color:var(--ok);margin-top:2px;">Uygulama içi canlı A4 görünümü — son kontrolünüzü yapıp PDF kaydedebilirsiniz</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn sm primary" id="btnDocSavePdf">A4 PDF Olarak Kaydet</button>
+        <button type="button" class="btn sm" id="btnDocClose">Kapat (Esc)</button>
+      </div>
+    </div>
+    <iframe id="docPreviewFrame" style="flex:1;width:100%;border:1px solid #cbd5e1;border-radius:10px;background:#fff;"></iframe>
+  </div>
 </div>
 
 <script>
 (() => {
   "use strict";
 
-  const ALLOYS = {
-    ss304:     { name: "AISI 304 (1.4301)", density: 7.93, priceKg: 245 },
-    ss316:     { name: "AISI 316L (1.4404)", density: 7.98, priceKg: 315 },
-    steel4140: { name: "4140 (42CrMo4)", density: 7.85, priceKg: 115 },
-    st37:      { name: "St37 (S235JR)", density: 7.85, priceKg: 58 },
-    al7075:    { name: "Alüminyum 7075-T6", density: 2.81, priceKg: 420 },
+  const DEFAULT_ALLOYS = {
+    ss304:     { name: "AISI 304 (1.4301) Paslanmaz", density: 7.93, priceKg: 245 },
+    ss316:     { name: "AISI 316L (1.4404) Paslanmaz", density: 7.98, priceKg: 315 },
+    steel4140: { name: "4140 (42CrMo4) Islah Çeliği", density: 7.85, priceKg: 115 },
+    st37:      { name: "St37 (S235JR) Yapı Çeliği", density: 7.85, priceKg: 58 },
+    ck45:      { name: "C45 / CK45 İmalat Çeliği", density: 7.85, priceKg: 85 },
+    d2_2379:   { name: "2379 (D2) Kalıp Çeliği", density: 7.70, priceKg: 340 },
+    al7075:    { name: "Alüminyum 7075-T6 (Havacılık)", density: 2.81, priceKg: 420 },
     al6061:    { name: "Alüminyum 6061-T6", density: 2.70, priceKg: 295 },
-    ti64:      { name: "Titanyum Ti-6Al-4V", density: 4.43, priceKg: 2650 },
-    brass:     { name: "Pirinç MS58", density: 8.47, priceKg: 460 },
+    al5083:    { name: "Alüminyum 5083", density: 2.66, priceKg: 280 },
+    ti64:      { name: "Titanyum Ti-6Al-4V (Grade 5)", density: 4.43, priceKg: 2650 },
+    brass:     { name: "Pirinç MS58 (CuZn39Pb3)", density: 8.47, priceKg: 460 },
+    copper:    { name: "Elektrolitik Bakır (Cu-ETP)", density: 8.96, priceKg: 620 },
     pom:       { name: "Delrin / POM", density: 1.41, priceKg: 260 },
+    pa6:       { name: "Kestamid / Polyamid PA6", density: 1.15, priceKg: 220 },
   };
+
+  const K_ALLOYS = "bahaworks_alloys_v73";
+  let ALLOYS = Object.assign({}, DEFAULT_ALLOYS, (() => {
+    try { return JSON.parse(localStorage.getItem(K_ALLOYS) || "{}"); } catch (_) { return {}; }
+  })());
+
+  function saveAlloys() {
+    localStorage.setItem(K_ALLOYS, JSON.stringify(ALLOYS));
+  }
+
+  function populateAlloySelectAndTable() {
+    const sel = document.getElementById("fMatKey");
+    const prev = sel.value || "ss304";
+    sel.innerHTML = Object.entries(ALLOYS).map(([k, a]) =>
+      `<option value="${k}">${a.name} (${Number(a.density).toFixed(2)} g/cm³)</option>`
+    ).join("");
+    sel.value = ALLOYS[prev] ? prev : "ss304";
+
+    const tb = document.getElementById("alloyTableBody");
+    tb.innerHTML = Object.entries(ALLOYS).map(([k, a]) => `
+      <tr>
+        <td><strong>${a.name}</strong></td>
+        <td><input type="number" step="0.01" value="${a.density}" data-alloy-dens="${k}" style="width:110px;height:30px;padding:0 8px;border:1px solid var(--border);border-radius:7px;" class="num" /></td>
+        <td><input type="number" step="5" value="${a.priceKg}" data-alloy-price="${k}" style="width:120px;height:30px;padding:0 8px;border:1px solid var(--border);border-radius:7px;" class="num" /></td>
+      </tr>
+    `).join("");
+  }
 
   const K_QUOTES = "bahaworks_quotes_v72";
   const K_INVOICES = "bahaworks_invoices_v72";
@@ -803,6 +920,7 @@
       tol: $("fTol").value.trim(),
       pricingMode,
       materialKey: $("fMatKey").value,
+      density: Math.max(0.1, Number($("fDensity").value) || 7.85),
       directMat: Number($("fDirectMat").value) || 0,
       grams: Number($("fGrams").value) || 0,
       kgPrice: Number($("fKgPrice").value) || 0,
@@ -830,29 +948,32 @@
 
   function compute(f) {
     const alloy = ALLOYS[f.materialKey] || ALLOYS.ss304;
-    let billetKg = 0, netKg = (f.grams || 0) / 1000, matUnit = 0, specLabel = "";
+    const density = Math.max(0.1, Number(f.density || alloy.density));
+    let volCm3 = 0, rawKg = 0, billetKg = 0, netKg = (f.grams || 0) / 1000, matUnit = 0, specLabel = "";
     if (f.pricingMode === "fason") {
       specLabel = "Müşteri malzemeli (fason CNC)";
       matUnit = 0;
     } else if (f.pricingMode === "unit") {
       matUnit = Math.max(0, f.directMat);
       billetKg = netKg;
+      rawKg = netKg;
       specLabel = `Parça başı değerleme`;
     } else if (f.pricingMode === "grams") {
+      rawKg = netKg;
       billetKg = netKg * (1 + f.scrap / 100);
       matUnit = billetKg * f.kgPrice;
       specLabel = `Net ${(netKg * 1000).toFixed(0)} g · Fireli ${billetKg.toFixed(3)} kg`;
     } else {
-      const volCm3 = f.shape === "cylindrical"
+      volCm3 = f.shape === "cylindrical"
         ? Math.PI * Math.pow(f.dimD / 20, 2) * (f.dimZ / 10)
         : (f.dimX * f.dimY * f.dimZ) / 1000;
-      const rawKg = (volCm3 * alloy.density) / 1000;
+      rawKg = (volCm3 * density) / 1000;
       billetKg = rawKg * (1 + f.scrap / 100);
       netKg = lastNetKgFromVision > 0 && lastNetKgFromVision < rawKg ? lastNetKgFromVision : rawKg * 0.55;
       matUnit = billetKg * f.kgPrice;
       specLabel = f.shape === "cylindrical"
-        ? `Ø${f.dimD} × ${f.dimZ} mm (${rawKg.toFixed(2)} kg ham)`
-        : `${f.dimX} × ${f.dimY} × ${f.dimZ} mm (${rawKg.toFixed(2)} kg ham)`;
+        ? `Ø${f.dimD} × ${f.dimZ} mm · Özkütle ${density.toFixed(2)} g/cm³`
+        : `${f.dimX} × ${f.dimY} × ${f.dimZ} mm · Özkütle ${density.toFixed(2)} g/cm³`;
     }
 
     const turnU = (f.turnMin / 60) * f.turnRate;
@@ -866,13 +987,14 @@
 
     const costUnit = matUnit + laborUnit;
     const sellUnit = costUnit * (1 + f.margin / 100);
+    const totalWeightKg = billetKg * f.qty;
     const matTotal = matUnit * f.qty;
     const laborTotal = laborUnit * f.qty;
     const subTotal = sellUnit * f.qty;
     const vat = subTotal * 0.20;
     const grandTotal = subTotal + vat;
 
-    return { alloy, billetKg, netKg, specLabel, matUnit, matTotal, laborUnit, laborTotal, turnU, millU, setupU, toolU, sellUnit, subTotal, vat, grandTotal };
+    return { alloy, density, volCm3, rawKg, billetKg, totalWeightKg, netKg, specLabel, matUnit, matTotal, laborUnit, laborTotal, turnU, millU, setupU, toolU, sellUnit, subTotal, vat, grandTotal };
   }
 
   function recalc() {
@@ -880,14 +1002,23 @@
     const c = compute(f);
     const s = getSettings();
 
-    $("kpiWeight").textContent = `${c.billetKg.toFixed(2)} kg`;
-    $("kpiWeightSub").textContent = c.netKg > 0 ? `Net işlenmiş ~${c.netKg.toFixed(2)} kg` : c.specLabel;
-    $("kpiMat").textContent = `${fmt(c.matUnit)} ₺`;
+    const wtDisplay = c.billetKg > 0 && c.billetKg < 1
+      ? `${Math.round(c.billetKg * 1000)} g`
+      : `${c.billetKg.toFixed(2)} kg`;
+    $("kpiWeight").textContent = `${wtDisplay} / adet`;
+    $("kpiWeightSub").textContent = `${f.qty} adet toplam: ${c.totalWeightKg.toFixed(2)} kg · Özkütle ${c.density.toFixed(2)} g/cm³`;
+    $("kpiMat").textContent = `${fmt(c.matUnit)} ₺ / ad`;
     $("kpiMatSub").textContent = `${f.qty} adet toplam: ${fmt(c.matTotal)} ₺`;
-    $("kpiLabor").textContent = `${fmt(c.laborUnit)} ₺`;
+    $("kpiLabor").textContent = `${fmt(c.laborUnit)} ₺ / ad`;
     $("kpiLaborSub").textContent = `${f.qty} adet toplam: ${fmt(c.laborTotal)} ₺`;
     $("kpiGrand").textContent = `${fmt(c.grandTotal)} ₺`;
-    $("kpiUnitSell").textContent = `Birim: ${fmt(c.sellUnit)} ₺ + KDV`;
+    $("kpiUnitSell").textContent = `Birim satış: ${fmt(c.sellUnit)} ₺ / adet + KDV`;
+
+    $("materialFormulaBar").innerHTML = f.pricingMode === "billet"
+      ? `<strong>Özkütle &amp; Ağırlık Hesabı:</strong> Hacim <strong>${c.volCm3.toFixed(1)} cm³</strong> × Özkütle <strong>${c.density.toFixed(2)} g/cm³</strong> = <strong>${(c.rawKg * 1000).toFixed(0)} g (${c.rawKg.toFixed(3)} kg)</strong> ham parça → +%${f.scrap} fire ile <strong>${c.billetKg.toFixed(3)} kg/ad</strong> × ${fmt(f.kgPrice)} ₺/kg = <strong>${fmt(c.matUnit)} ₺/adet</strong> (${f.qty} adet toplam <strong>${c.totalWeightKg.toFixed(2)} kg · ${fmt(c.matTotal)} ₺</strong>)`
+      : f.pricingMode === "fason"
+        ? `<strong>Fason İşçilik Modu:</strong> Malzeme müşteri tarafından sağlanır (0,00 ₺). Yalnızca CNC tezgâh, bağlama ve işçilik fiyatlandırılır.`
+        : `<strong>Malzeme Özeti:</strong> ${c.alloy.name} (${c.density.toFixed(2)} g/cm³) · Parça başı <strong>${fmt(c.matUnit)} ₺/adet</strong> · ${f.qty} adet toplam <strong>${fmt(c.matTotal)} ₺</strong>`;
 
     $("breakdownBox").innerHTML = `
       <div class="br-row"><span>Malzeme · ${c.alloy.name} (${c.specLabel})</span><strong>${fmt(c.matTotal)} ₺</strong></div>
@@ -999,7 +1130,129 @@ ${s.phone}`;
     try { await navigator.clipboard.writeText($("fMessage").value); } catch (_) {}
     showBanner("ok", "Teklif metni panoya kopyalandı.");
   };
-  $("btnPrintQuote").onclick = () => window.print();
+  // REAL VECTOR A4 PDF EXPORT (Native macOS WKWebView.createPDF + Save Dialog / Browser Print fallback!)
+  function buildCleanA4DocumentHtml(kind) {
+    const s = getSettings();
+    const esc = (x) => String(x || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    if (kind === "invoice") {
+      const t = recalcInvoice();
+      return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><style>
+        body{font-family:-apple-system,Inter,sans-serif;color:#0f172a;padding:36px;font-size:12.5px;line-height:1.55;}
+        .hd{display:flex;justify-content:space-between;border-bottom:2px solid #0f172a;padding-bottom:14px;margin-bottom:22px;}
+        h1{margin:0;font-size:20px;letter-spacing:-0.3px;} .muted{color:#64748b;font-size:11.5px;}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px;}
+        .box{border:1px solid #cbd5e1;border-radius:8px;padding:12px 14px;}
+        table{width:100%;border-collapse:collapse;margin-bottom:22px;}
+        th,td{border:1px solid #cbd5e1;padding:9px 11px;text-align:left;} th{background:#f1f5f9;font-size:11px;text-transform:uppercase;}
+        .tot{width:320px;margin-left:auto;border:1px solid #cbd5e1;border-radius:8px;padding:12px 14px;}
+        .r{display:flex;justify-content:space-between;padding:4px 0;} .r.b{border-top:1.5px solid #0f172a;margin-top:6px;padding-top:8px;font-weight:700;font-size:14px;}
+      </style></head><body>
+        <div class="hd"><div><h1>${esc(s.company)}</h1><div class="muted">VKN: ${esc(s.vkn)} · ${esc(s.taxOffice)} · ${esc(s.phone)}</div></div>
+        <div style="text-align:right"><strong>RESMİ e-FATURA ÖZETİ</strong><div class="muted">No: ${esc($("invNo").value)} · Tarih: ${esc($("invDate").value)}</div><div class="muted">ETTN: ${currentEttn}</div></div></div>
+        <div class="grid">
+          <div class="box"><strong>ALICI BİLGİLERİ</strong><br>${esc($("invBuyer").value)}<br>VKN/TCKN: ${esc($("invVkn").value)}<br>Vergi Dairesi: ${esc($("invTaxOffice").value)}</div>
+          <div class="box"><strong>FATURA SENARYOSU</strong><br>${esc($("invScenario").value)}<br>IBAN: ${esc(s.iban)}<br>Not: ${esc($("invNote").value)}</div>
+        </div>
+        <table><thead><tr><th>Açıklama</th><th>Miktar</th><th>Birim Fiyat</th><th>KDV</th><th>Tutar</th></tr></thead>
+        <tbody><tr><td>${esc($("invItemName").value)}</td><td>${t.qty} Adet</td><td>${fmt(t.unit)} ₺</td><td>%${t.vatRate}</td><td>${fmt(t.sub)} ₺</td></tr></tbody></table>
+        <div class="tot">
+          <div class="r"><span>Ara Toplam</span><strong>${fmt(t.sub)} ₺</strong></div>
+          <div class="r"><span>Hesaplanan KDV (%${t.vatRate})</span><strong>${fmt(t.vat)} ₺</strong></div>
+          ${t.wh > 0 ? `<div class="r"><span>Tevkifat</span><strong>-${fmt(t.whAmt)} ₺</strong></div>` : ""}
+          <div class="r b"><span>ÖDENECEK TUTAR</span><span>${fmt(t.payable)} ₺</span></div>
+        </div>
+      </body></html>`;
+    }
+    const f = readForm();
+    const c = compute(f);
+    const thumb = $("previewImg").src && $("previewStage").classList.contains("show")
+      ? `<div style="margin:14px 0;text-align:center;border:1px solid #cbd5e1;border-radius:8px;padding:10px;"><img src="${$("previewImg").src}" style="max-width:100%;max-height:240px;object-fit:contain;" /></div>`
+      : "";
+    return `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><style>
+      body{font-family:-apple-system,Inter,sans-serif;color:#0f172a;padding:34px;font-size:12px;line-height:1.5;}
+      .hd{display:flex;justify-content:space-between;border-bottom:2px solid #0f172a;padding-bottom:12px;margin-bottom:18px;}
+      h1{margin:0;font-size:19px;} .muted{color:#64748b;font-size:11px;}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+      .box{border:1px solid #cbd5e1;border-radius:8px;padding:10px 13px;}
+      table{width:100%;border-collapse:collapse;margin:14px 0;}
+      th,td{border:1px solid #cbd5e1;padding:8px 10px;text-align:left;} th{background:#f1f5f9;font-size:11px;text-transform:uppercase;}
+      .tot{width:310px;margin-left:auto;border:1px solid #cbd5e1;border-radius:8px;padding:10px 13px;}
+      .r{display:flex;justify-content:space-between;padding:3px 0;} .r.b{border-top:1.5px solid #0f172a;margin-top:6px;padding-top:7px;font-weight:700;font-size:14px;}
+    </style></head><body>
+      <div class="hd"><div><h1>${esc(s.company)}</h1><div class="muted">VKN: ${esc(s.vkn)} · ${esc(s.phone)} · ${esc(s.manager)}</div></div>
+      <div style="text-align:right"><strong>RESMİ FİYAT TEKLİFİ</strong><div class="muted">Kod: ${esc(f.id)} · Tarih: ${esc(f.date)}</div></div></div>
+      <div class="grid">
+        <div class="box"><strong>MÜŞTERİ</strong><br>${esc(f.customer)}<br>Yetkili: ${esc(f.contact)}<br>İletişim: ${esc(f.phone || f.email)}</div>
+        <div class="box"><strong>PARÇA VE MALZEME</strong><br>${esc(f.partName)} (${esc(f.partCode)})<br>${esc(c.alloy.name)} · Özkütle ${c.density.toFixed(2)} g/cm³<br>${esc(c.specLabel)} · Tolerans: ${esc(f.tol)}</div>
+      </div>
+      ${thumb}
+      <table><thead><tr><th>Kalem</th><th>Detay</th><th>Adet</th><th>Birim (₺)</th><th>Toplam (₺)</th></tr></thead><tbody>
+        <tr><td>Ham Malzeme</td><td>${esc(c.alloy.name)} (${c.billetKg.toFixed(3)} kg/ad · Toplam ${c.totalWeightKg.toFixed(2)} kg)</td><td>${f.qty}</td><td>${fmt(c.matUnit)}</td><td>${fmt(c.matTotal)}</td></tr>
+        <tr><td>CNC İşçilik &amp; Setup</td><td>Torna ${f.turnMin} dk · Freze ${f.millMin} dk · Setup ${f.setupMin} dk</td><td>${f.qty}</td><td>${fmt(c.laborUnit)}</td><td>${fmt(c.laborTotal)}</td></tr>
+      </tbody></table>
+      <div class="tot">
+        <div class="r"><span>Birim Satış Fiyatı (KDV Hariç)</span><strong>${fmt(c.sellUnit)} ₺ / adet</strong></div>
+        <div class="r"><span>Ara Toplam</span><strong>${fmt(c.subTotal)} ₺</strong></div>
+        <div class="r"><span>KDV (%20)</span><strong>${fmt(c.vat)} ₺</strong></div>
+        <div class="r b"><span>GENEL TOPLAM</span><span>${fmt(c.grandTotal)} ₺</span></div>
+      </div>
+      <div style="margin-top:16px;font-size:11.5px;color:#475569;"><strong>Termin:</strong> Sipariş onayından itibaren ${f.leadDays} iş günü · <strong>Geçerlilik:</strong> 15 gün · <strong>IBAN:</strong> ${esc(s.iban)}</div>
+    </body></html>`;
+  }
+
+  let activeDocHtml = "";
+  let activeDocFilename = "BahaWorks_A4.pdf";
+
+  function openInAppA4Preview(kind, customInvRecord) {
+    if (customInvRecord) {
+      $("invNo").value = customInvRecord.no || "";
+      $("invDate").value = customInvRecord.date || "";
+      $("invBuyer").value = customInvRecord.buyer || "";
+      $("invVkn").value = customInvRecord.vkn || "";
+      $("invTaxOffice").value = customInvRecord.taxOffice || "";
+      $("invScenario").value = customInvRecord.scenario || "TICARIFATURA";
+      $("invItemName").value = customInvRecord.itemName || "";
+      $("invQty").value = customInvRecord.qty || 1;
+      $("invUnitPrice").value = customInvRecord.unitPrice || 0;
+      $("invVatRate").value = customInvRecord.vatRate ?? 20;
+      $("invWithhold").value = customInvRecord.withhold ?? 0;
+      $("invNote").value = customInvRecord.note || "";
+      if (customInvRecord.ettn) currentEttn = customInvRecord.ettn;
+      recalcInvoice();
+    }
+    activeDocHtml = buildCleanA4DocumentHtml(kind);
+    activeDocFilename = kind === "invoice"
+      ? `${($("invNo").value || "Fatura").replace(/[^A-Za-z0-9_-]/g, "_")}.pdf`
+      : `BahaWorks_Teklif_${($("fPartCode").value || "Parca").replace(/[^A-Za-z0-9_-]/g, "_")}.pdf`;
+    $("docModalTitle").textContent = kind === "invoice"
+      ? `Resmi e-Fatura Önizleme · ${$("invNo").value}`
+      : `Resmi Fiyat Teklifi Önizleme · ${$("fPartCode").value}`;
+    $("docModalStatus").textContent = "Uygulama içi A4 görünümü — harici programa çıkmadan kontrol edip PDF kaydedebilirsiniz";
+    $("docPreviewFrame").srcdoc = activeDocHtml;
+    $("docModal").classList.add("open");
+  }
+
+  window.__bahaPdfSaved = (savedPath) => {
+    $("docModalStatus").textContent = `A4 PDF kaydedildi: ${savedPath}`;
+    showBanner("ok", `A4 PDF başarıyla kaydedildi: ${savedPath}`);
+  };
+
+  $("btnDocSavePdf").onclick = () => {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bahaExportPdf) {
+      $("docModalStatus").textContent = "PDF oluşturuluyor, kayıt penceresi açılıyor...";
+      window.webkit.messageHandlers.bahaExportPdf.postMessage({ filename: activeDocFilename, html: activeDocHtml });
+    } else {
+      const f = $("docPreviewFrame");
+      if (f && f.contentWindow) { f.contentWindow.focus(); f.contentWindow.print(); }
+      else window.print();
+    }
+  };
+  $("btnDocClose").onclick = () => $("docModal").classList.remove("open");
+  $("docModal").onclick = (e) => { if (e.target === $("docModal")) $("docModal").classList.remove("open"); };
+
+  $("btnPrintQuote").onclick = () => openInAppA4Preview("quote");
+  $("btnPrintInvoice").onclick = () => openInAppA4Preview("invoice");
+  $("btnOpenInvPreview").onclick = () => openInAppA4Preview("invoice");
 
   // UPLOAD & NATIVE RUST + VISION PDF ANALYSIS
   async function analyzeFile(file) {
@@ -1018,7 +1271,11 @@ ${s.phone}`;
 
         if (d.preview_png_b64) {
           $("previewImg").src = d.preview_png_b64;
-          $("previewBar").classList.add("show");
+          $("zoomImg").src = d.preview_png_b64;
+          $("previewFileLabel").textContent = `${file.name} · ${d.part_name || "Teknik Çizim"}`;
+          $("zoomTitle").textContent = `${file.name} — Tam Ekran İnceleme`;
+          $("previewMetaLabel").textContent = `${d.material_label || ""} · ${d.shape === "cylindrical" ? `Ø${d.dim_d_mm} × ${d.dim_z_mm} mm` : `${d.dim_x_mm} × ${d.dim_y_mm} × ${d.dim_z_mm} mm`} · ${d.qty || 1} Adet`;
+          $("previewStage").classList.add("show");
         }
         if (d.customer) $("fCustomer").value = d.customer;
         if (d.part_name) $("fPartName").value = d.part_name;
@@ -1026,7 +1283,10 @@ ${s.phone}`;
         if (d.qty) $("fQty").value = d.qty;
         if (d.material_key && ALLOYS[d.material_key]) {
           $("fMatKey").value = d.material_key;
-          $("fKgPrice").value = d.kg_price_tl || ALLOYS[d.material_key].priceKg;
+          $("fDensity").value = ALLOYS[d.material_key].density;
+          $("fKgPrice").value = ALLOYS[d.material_key].priceKg;
+        } else if (d.density_g_cm3) {
+          $("fDensity").value = d.density_g_cm3;
         }
         if (d.shape === "cylindrical" || d.shape === "prismatic") $("fShape").value = d.shape;
         if (d.dim_d_mm) $("fDimD").value = d.dim_d_mm;
@@ -1043,9 +1303,9 @@ ${s.phone}`;
         if (d.vision_verified) setPricingMode("billet"); else recalc();
 
         lastEngineeringNote = d.engineering_comment || "";
-        const massTag = d.billet_kg ? `Ham Kütük: ${Number(d.billet_kg).toFixed(2)} kg · Net: ~${Number(d.net_kg || 0).toFixed(2)} kg — ` : "";
+        const massTag = d.billet_kg ? `Ham Kütük: ${Number(d.billet_kg).toFixed(3)} kg (${Math.round(d.billet_kg*1000)} g) · Net: ~${Number(d.net_kg || 0).toFixed(2)} kg — ` : "";
         $("previewNote").textContent = massTag + lastEngineeringNote;
-        $("dzTitle").textContent = `${file.name} okundu`;
+        $("dzTitle").textContent = `${file.name} yüklendi ve okundu`;
         $("dzSub").textContent = `${d.material_label || ""} · ${d.tolerance || "ISO 2768-m"}`;
 
         // Also query Rust LocalML memory
@@ -1155,9 +1415,9 @@ ${s.phone}`;
   $("btnNewQuote").onclick = () => {
     activeQuoteId = null;
     $("fCustomer").value = ""; $("fContact").value = ""; $("fPartName").value = ""; $("fPartCode").value = "";
-    $("previewBar").classList.remove("show");
-    $("dzTitle").textContent = "Teknik resim PDF veya görsel yükleyin";
-    $("dzSub").textContent = "Antet, malzeme kodu, ham kütük ölçüsü, adet ve toleranslar otomatik okunur";
+    $("previewStage").classList.remove("show");
+    $("dzTitle").textContent = "PDF, STEP, JPG, PNG veya karakalem çizim fotoğrafı yükleyin";
+    $("dzSub").textContent = "Dosya yukarıda tam ortada büyük önizleme ile açılır; ölçüler, malzeme ve özkütle otomatik hesaplanır";
     recalc();
   };
 
@@ -1303,21 +1563,53 @@ ${s.phone}`;
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     a.download = `${$("invNo").value}_Logo_Mikro.csv`; a.click();
   };
-  $("btnInvSave").onclick = () => {
+  $("btnInvSave").onclick = async () => {
     const t = recalcInvoice();
+    const rec = {
+      no: $("invNo").value, date: $("invDate").value, buyer: $("invBuyer").value,
+      vkn: $("invVkn").value, taxOffice: $("invTaxOffice").value,
+      itemName: $("invItemName").value, qty: t.qty, unitPrice: t.unit,
+      vatRate: t.vatRate, withhold: t.wh, note: $("invNote").value,
+      total: t.payable, scenario: $("invScenario").value, ettn: currentEttn
+    };
     const list = loadJson(K_INVOICES, []);
-    list.unshift({ no: $("invNo").value, date: $("invDate").value, buyer: $("invBuyer").value, total: t.payable, scenario: $("invScenario").value, ettn: currentEttn });
+    const idx = list.findIndex(x => x.no === rec.no);
+    if (idx >= 0) list[idx] = rec; else list.unshift(rec);
     saveJson(K_INVOICES, list);
     renderInvoices();
-    $("invCheckBanner").textContent = `Fatura (${$("invNo").value}) kaydedildi. UBL-TR 1.2 XML ile GİB portalına veya entegratöre doğrudan yükleyebilirsiniz.`;
+
+    let diskMsg = "Yerel fatura defterine kaydedildi.";
+    try {
+      const r = await fetch("/api/invoice/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inv_no: rec.no, xml: buildUblXml() })
+      });
+      const d = await r.json();
+      if (d.ok) diskMsg = `Kaydedildi: ${d.saved_path} (GİB portalına yüklenmeye hazır — doğrudan GİB'e otomatik gönderim için Mali Mühür/Entegratör bağlanmalıdır).`;
+    } catch (_) {}
+    $("invCheckBanner").textContent = diskMsg;
   };
 
   function renderInvoices() {
     const list = loadJson(K_INVOICES, []);
     $("navInvCount").textContent = String(list.length);
-    $("invTbody").innerHTML = list.length ? list.map(x => `
-      <tr><td class="num"><strong>${x.no}</strong></td><td>${x.buyer}</td><td class="num"><strong>${fmt(x.total)} ₺</strong></td><td><span class="pill done">${x.scenario}</span></td></tr>
-    `).join("") : `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px;">Henüz kesilmiş fatura yok.</td></tr>`;
+    $("invTbody").innerHTML = list.length ? list.map((x, i) => `
+      <tr>
+        <td class="num"><strong>${x.no}</strong></td>
+        <td>${x.buyer}</td>
+        <td class="num"><strong>${fmt(x.total)} ₺</strong></td>
+        <td><span class="pill done">${x.scenario}</span></td>
+        <td><button type="button" class="btn sm ghost" data-open-inv="${i}">Faturayı Aç</button></td>
+      </tr>
+    `).join("") : `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px;">Henüz kesilmiş fatura yok.</td></tr>`;
+
+    $("invTbody").querySelectorAll("[data-open-inv]").forEach(btn => {
+      btn.onclick = () => {
+        const rec = loadJson(K_INVOICES, [])[Number(btn.dataset.openInv)];
+        if (rec) openInAppA4Preview("invoice", rec);
+      };
+    });
   }
 
   // SETTINGS
@@ -1349,13 +1641,50 @@ ${s.phone}`;
     a.download = "BahaWorks_Yedek.json"; a.click();
   };
 
+  // ZOOM LIGHTBOX & PREVIEW CONTROLS
+  $("btnPickAnother").onclick = () => { fi.value = ""; fi.click(); };
+  $("btnZoomOpen").onclick = $("previewWrap").onclick = () => { if ($("zoomImg").src) $("zoomModal").classList.add("open"); };
+  $("btnZoomClose").onclick = () => $("zoomModal").classList.remove("open");
+  $("zoomModal").onclick = (e) => { if (e.target === $("zoomModal")) $("zoomModal").classList.remove("open"); };
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape") { $("zoomModal").classList.remove("open"); $("docModal").classList.remove("open"); } });
+
+  // EDITABLE ALLOY DENSITY & PRICE PERSISTENCE
+  $("btnSaveAlloyDefaults").onclick = () => {
+    const k = $("fMatKey").value;
+    if (ALLOYS[k]) {
+      ALLOYS[k].density = Math.max(0.1, Number($("fDensity").value) || ALLOYS[k].density);
+      ALLOYS[k].priceKg = Math.max(1, Number($("fKgPrice").value) || ALLOYS[k].priceKg);
+      saveAlloys();
+      populateAlloySelectAndTable();
+      $("fMatKey").value = k;
+      showBanner("ok", `${ALLOYS[k].name} için özkütle (${ALLOYS[k].density} g/cm³) ve fiyat (${ALLOYS[k].priceKg} ₺/kg) kalıcı olarak güncellendi.`);
+    }
+  };
+  $("btnSaveAlloyTable").onclick = () => {
+    document.querySelectorAll("[data-alloy-dens]").forEach(inp => {
+      const k = inp.dataset.alloyDens;
+      if (ALLOYS[k]) ALLOYS[k].density = Math.max(0.1, Number(inp.value) || ALLOYS[k].density);
+    });
+    document.querySelectorAll("[data-alloy-price]").forEach(inp => {
+      const k = inp.dataset.alloyPrice;
+      if (ALLOYS[k]) ALLOYS[k].priceKg = Math.max(1, Number(inp.value) || ALLOYS[k].priceKg);
+    });
+    saveAlloys();
+    const curK = $("fMatKey").value;
+    populateAlloySelectAndTable();
+    $("fMatKey").value = curK;
+    if (ALLOYS[curK]) { $("fDensity").value = ALLOYS[curK].density; $("fKgPrice").value = ALLOYS[curK].priceKg; }
+    recalc();
+    alert("Malzeme özkütle ve fiyat veritabanı kaydedildi.");
+  };
+
   // INPUT LISTENERS
-  ["fCustomer","fContact","fPartName","fPartCode","fQty","fTol","fDirectMat","fGrams","fKgPrice","fDimD","fDimX","fDimY","fDimZ","fScrap","fTurnMin","fTurnRate","fMillMin","fMillRate","fEdmMin","fSetupMin","fToolPct","fOutside","fMargin","fPhone","fEmail","fLeadDays"].forEach(id => {
+  ["fCustomer","fContact","fPartName","fPartCode","fQty","fTol","fDensity","fDirectMat","fGrams","fKgPrice","fDimD","fDimX","fDimY","fDimZ","fScrap","fTurnMin","fTurnRate","fMillMin","fMillRate","fEdmMin","fSetupMin","fToolPct","fOutside","fMargin","fPhone","fEmail","fLeadDays"].forEach(id => {
     $(id).addEventListener("input", recalc);
   });
   $("fMatKey").onchange = () => {
     const a = ALLOYS[$("fMatKey").value];
-    if (a) $("fKgPrice").value = a.priceKg;
+    if (a) { $("fDensity").value = a.density; $("fKgPrice").value = a.priceKg; }
     recalc();
   };
   $("fShape").onchange = () => setPricingMode(pricingMode);
@@ -1381,6 +1710,7 @@ ${s.phone}`;
   }
 
   // INIT
+  populateAlloySelectAndTable();
   $("invDate").value = new Date().toISOString().slice(0, 10);
   loadSettingsUI();
   setPricingMode("billet");

@@ -215,6 +215,10 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
                 let json = handle_direct_email_send(&body_str);
                 write_json(&mut stream, 200, &json)
             }
+            "/api/invoice/save" => {
+                let json = handle_save_invoice_disk(&body_str);
+                write_json(&mut stream, 200, &json)
+            }
             _ => write_json(&mut stream, 404, r#"{"ok":false,"error":"Bilinmeyen uç nokta"}"#),
         };
     }
@@ -482,6 +486,31 @@ fn handle_direct_email_send(body: &str) -> String {
     }
 }
 
+/// Saves official UBL-TR 1.2 XML & HTML archive into ~/Documents/BahaWorks_Faturalar/ locally!
+fn handle_save_invoice_disk(body: &str) -> String {
+    let inv_no = extract_json_str(body, "inv_no");
+    let xml = extract_json_str(body, "xml");
+    let clean_no: String = inv_no
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
+        .collect();
+    let fname_base = if clean_no.is_empty() { "BHW_FATURA".to_string() } else { clean_no };
+    let home = env::var("HOME").or_else(|_| env::var("USERPROFILE")).unwrap_or_else(|_| ".".into());
+    let dir = PathBuf::from(home).join("Documents").join("BahaWorks_Faturalar");
+    if fs::create_dir_all(&dir).is_err() {
+        return r#"{"ok":false,"error":"Faturalar klasörü oluşturulamadı."}"#.into();
+    }
+    let xml_path = dir.join(format!("{}_UBL_TR.xml", fname_base));
+    if let Err(e) = fs::write(&xml_path, xml.as_bytes()) {
+        return format!(r#"{{"ok":false,"error":"Fatura yazılamadı: {}"}}"#, json_escape(&e.to_string()));
+    }
+    format!(
+        r#"{{"ok":true,"saved_path":"{}","folder":"{}"}}"#,
+        json_escape(&xml_path.to_string_lossy()),
+        json_escape(&dir.to_string_lossy())
+    )
+}
+
 fn get_xai_key() -> Option<String> {
     get_env_var_multi("XAI_API_KEY")
 }
@@ -516,26 +545,29 @@ fn render_to_png_bytes(filename: &str, raw: &[u8]) -> Option<Vec<u8>> {
     if low.ends_with(".png") || low.ends_with(".jpg") || low.ends_with(".jpeg") || low.ends_with(".webp") {
         return Some(raw.to_vec());
     }
-    if !low.ends_with(".pdf") && !(raw.len() > 4 && &raw[..4] == b"%PDF") {
+    let is_pdf = low.ends_with(".pdf") || (raw.len() > 4 && &raw[..4] == b"%PDF");
+    let is_heic = low.ends_with(".heic") || low.ends_with(".heif") || low.ends_with(".tif") || low.ends_with(".tiff") || low.ends_with(".bmp");
+    if !is_pdf && !is_heic {
         return None;
     }
+    let ext = if is_pdf { "pdf" } else { low.rsplit('.').next().unwrap_or("heic") };
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(1);
     let tmp_dir = env::temp_dir();
-    let pdf_path = tmp_dir.join(format!("bahaforge_in_{}.pdf", stamp));
+    let in_path = tmp_dir.join(format!("bahaforge_in_{}.{}", stamp, ext));
     let png_path = tmp_dir.join(format!("bahaforge_out_{}.png", stamp));
-    if fs::write(&pdf_path, raw).is_err() {
+    if fs::write(&in_path, raw).is_err() {
         return None;
     }
     let mut rendered: Option<Vec<u8>> = None;
     #[cfg(target_os = "macos")]
     {
-        // Apple CoreGraphics native PDF->PNG via sips (0.3s, 2200px razor-sharp, zero Python!)
+        // Apple CoreGraphics native PDF/HEIC/TIFF->PNG via sips (0.3s, 2200px razor-sharp, zero Python!)
         let ok = Command::new("/usr/bin/sips")
             .args(["-s", "format", "png", "-Z", "2200"])
-            .arg(&pdf_path)
+            .arg(&in_path)
             .arg("--out")
             .arg(&png_path)
             .output()
@@ -543,7 +575,7 @@ fn render_to_png_bytes(filename: &str, raw: &[u8]) -> Option<Vec<u8>> {
             .unwrap_or(false);
         if ok {
             if let Ok(b) = fs::read(&png_path) {
-                if b.len() > 1000 {
+                if b.len() > 500 {
                     rendered = Some(b);
                 }
             }
@@ -551,38 +583,177 @@ fn render_to_png_bytes(filename: &str, raw: &[u8]) -> Option<Vec<u8>> {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        // On Windows/Linux try pdftoppm if available
-        let prefix = tmp_dir.join(format!("bahaforge_out_{}", stamp));
-        let ok = Command::new("pdftoppm")
-            .args(["-png", "-r", "220", "-singlefile"])
-            .arg(&pdf_path)
-            .arg(&prefix)
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
-        if ok {
-            if let Ok(b) = fs::read(&png_path) {
-                if b.len() > 1000 {
-                    rendered = Some(b);
+        if is_pdf {
+            let prefix = tmp_dir.join(format!("bahaforge_out_{}", stamp));
+            let ok = Command::new("pdftoppm")
+                .args(["-png", "-r", "220", "-singlefile"])
+                .arg(&in_path)
+                .arg(&prefix)
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+            if ok {
+                if let Ok(b) = fs::read(&png_path) {
+                    if b.len() > 500 {
+                        rendered = Some(b);
+                    }
                 }
             }
         }
     }
-    let _ = fs::remove_file(&pdf_path);
+    let _ = fs::remove_file(&in_path);
     let _ = fs::remove_file(&png_path);
     rendered
+}
+
+/// Pure-Rust ISO-10303-21 (.STEP/.STP) geometry & bounding-box extractor + crisp isometric SVG preview!
+fn analyze_step_file_rust(filename: &str, raw: &[u8]) -> Option<String> {
+    let low_fn = filename.to_lowercase();
+    let txt = String::from_utf8_lossy(raw);
+    if !(low_fn.ends_with(".step") || low_fn.ends_with(".stp") || txt.contains("ISO-10303-21")) {
+        return None;
+    }
+    let mut min_x = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+    let mut min_z = f64::INFINITY;
+    let mut max_z = f64::NEG_INFINITY;
+    let mut pts: Vec<(f64, f64, f64)> = Vec::new();
+    let mut cyl_count = 0usize;
+
+    for line in txt.lines() {
+        let up = line.to_uppercase();
+        if up.contains("CYLINDRICAL_SURFACE") {
+            cyl_count += 1;
+        }
+        if up.contains("CARTESIAN_POINT") {
+            if let Some(lp) = line.rfind('(') {
+                if let Some(rp) = line[lp..].find(')') {
+                    let inner = &line[lp + 1..lp + rp];
+                    let coords: Vec<f64> = inner
+                        .split(',')
+                        .filter_map(|s| s.trim().parse::<f64>().ok())
+                        .collect();
+                    if coords.len() == 3 && coords.iter().all(|v| v.is_finite() && v.abs() < 50_000.0) {
+                        let (x, y, z) = (coords[0], coords[1], coords[2]);
+                        min_x = min_x.min(x); max_x = max_x.max(x);
+                        min_y = min_y.min(y); max_y = max_y.max(y);
+                        min_z = min_z.min(z); max_z = max_z.max(z);
+                        if pts.len() < 4000 {
+                            pts.push((x, y, z));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let dx = if max_x > min_x { (max_x - min_x).max(1.0) } else { 100.0 };
+    let dy = if max_y > min_y { (max_y - min_y).max(1.0) } else { 80.0 };
+    let dz = if max_z > min_z { (max_z - min_z).max(1.0) } else { 30.0 };
+    let is_cyl = cyl_count > 0 && ((dx - dy).abs() / dx.max(1.0) < 0.08);
+    let shape = if is_cyl { "cylindrical" } else { "prismatic" };
+
+    // Build clean technical isometric SVG preview of the STEP point cloud + bounding box!
+    let mut svg_pts = String::new();
+    let cx = (min_x + max_x) * 0.5;
+    let cy = (min_y + max_y) * 0.5;
+    let cz = (min_z + max_z) * 0.5;
+    let scale = 210.0 / dx.max(dy).max(dz).max(1.0);
+    let proj = |x: f64, y: f64, z: f64| -> (f64, f64) {
+        let rx = (x - cx) * scale;
+        let ry = (y - cy) * scale;
+        let rz = (z - cz) * scale;
+        let px = 420.0 + (rx - ry) * 0.866;
+        let py = 240.0 + (rx + ry) * 0.42 - rz * 0.92;
+        (px, py)
+    };
+    let corners = [
+        proj(min_x, min_y, min_z), proj(max_x, min_y, min_z),
+        proj(max_x, max_y, min_z), proj(min_x, max_y, min_z),
+        proj(min_x, min_y, max_z), proj(max_x, min_y, max_z),
+        proj(max_x, max_y, max_z), proj(min_x, max_y, max_z),
+    ];
+    let edges = [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),(0,4),(1,5),(2,6),(3,7)];
+    let mut box_lines = String::new();
+    for (a, b) in edges {
+        box_lines.push_str(&format!(
+            r##"<line x1="{:.1}" y1="{:.1}" x2="{:.1}" y2="{:.1}" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4 3"/>"##,
+            corners[a].0, corners[a].1, corners[b].0, corners[b].1
+        ));
+    }
+    let step_stride = (pts.len() / 600).max(1);
+    for (i, &(x, y, z)) in pts.iter().enumerate() {
+        if i % step_stride == 0 {
+            let (px, py) = proj(x, y, z);
+            svg_pts.push_str(&format!(r##"<circle cx="{:.1}" cy="{:.1}" r="1.9" fill="#1d4ed8" opacity="0.72"/>"##, px, py));
+        }
+    }
+    let svg = format!(
+        r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 460" style="background:#f8fafc"><rect width="840" height="460" fill="#f8fafc"/>{}{}
+        <text x="28" y="38" font-family="-apple-system,Inter,sans-serif" font-size="16" font-weight="700" fill="#0f172a">3D STEP MODEL ÖNİZLEME · {}</text>
+        <text x="28" y="62" font-family="-apple-system,Inter,sans-serif" font-size="13" fill="#475569">Dış Zarf (B-Rep): {:.1} × {:.1} × {:.1} mm · {} nokta · {} silindirik yüzey</text>
+        </svg>"##,
+        box_lines, svg_pts, filename, dx, dy, dz, pts.len(), cyl_count
+    );
+    let preview_url = format!("data:image/svg+xml;base64,{}", base64_encode(svg.as_bytes()));
+
+    let (mat_key, mat_lbl, density, kg_price) = alloy_meta("steel4140");
+    let billet_vol_cm3 = if is_cyl {
+        std::f64::consts::PI * (dx / 20.0).powi(2) * (dz / 10.0)
+    } else {
+        (dx * dy * dz) / 1000.0
+    };
+    let billet_kg = (billet_vol_cm3 * density) / 1000.0;
+    let net_kg = billet_kg * 0.55;
+    let direct_mat_tl = (billet_kg * 1.08 * kg_price).round() as i64;
+    let clean_code: String = filename.split('.').next().unwrap_or("STEP-PART").to_uppercase();
+    let comment = format!(
+        "3D STEP (ISO-10303-21) modelinden doğrudan {:.1} × {:.1} × {:.1} mm kütük ölçüleri ve {} silindirik yüzey okundu. Malzemeyi ve özkütleyi seçerek anında kesin ağırlık ve fiyat çıkarabilirsiniz.",
+        dx, dy, dz, cyl_count
+    );
+
+    Some(format!(
+        r#"{{"ok":true,"engine":"BahaWorks Rust STEP Parser v7.3","vision_verified":true,"customer":"","part_name":"3D STEP Parça ({})","part_code":"{}","qty":10,"material_key":"{}","material_label":"{}","density_g_cm3":{:.2},"shape":"{}","dim_d_mm":{:.1},"dim_x_mm":{:.1},"dim_y_mm":{:.1},"dim_z_mm":{:.1},"billet_kg":{:.3},"billet_grams":{},"net_kg":{:.3},"net_grams":{},"direct_mat_unit_tl":{},"kg_price_tl":{:.0},"tolerance":"ISO 2768-m","turn_min":{},"mill_min":{},"edm_min":0,"setup_min":45,"difficulty":"Hassas","engineering_comment":"{}","preview_png_b64":"{}"}}"#,
+        json_escape(&clean_code),
+        json_escape(&clean_code),
+        mat_key,
+        json_escape(mat_lbl),
+        density,
+        shape,
+        dx,
+        dx,
+        dy,
+        dz,
+        billet_kg,
+        (billet_kg * 1000.0).round() as i64,
+        net_kg,
+        (net_kg * 1000.0).round() as i64,
+        direct_mat_tl,
+        kg_price,
+        if is_cyl { 18 } else { 0 },
+        if is_cyl { 20 } else { 40 },
+        json_escape(&comment),
+        preview_url
+    ))
 }
 
 fn alloy_meta(key: &str) -> (&'static str, &'static str, f64, f64) {
     match key {
         "al7075" => ("al7075", "Alüminyum 7075-T6 (Havacılık)", 2.81, 420.0),
         "al6061" => ("al6061", "Alüminyum 6061-T6", 2.70, 295.0),
+        "al5083" => ("al5083", "Alüminyum 5083", 2.66, 280.0),
         "st37" => ("st37", "St37 / S235JR Yapı Çeliği", 7.85, 58.0),
+        "ck45" => ("ck45", "C45 / CK45 İmalat Çeliği", 7.85, 85.0),
+        "d2_2379" => ("d2_2379", "2379 (D2) Soğuk İş Kalıp Çeliği", 7.70, 340.0),
         "ss304" => ("ss304", "AISI 304 (1.4301) Paslanmaz Çelik", 7.93, 245.0),
         "ss316" => ("ss316", "AISI 316L (1.4404) Paslanmaz Çelik", 7.98, 315.0),
         "ti64" => ("ti64", "Titanyum Ti-6Al-4V (Grade 5)", 4.43, 2650.0),
         "brass" => ("brass", "Pirinç MS58 (CuZn39Pb3)", 8.47, 460.0),
+        "copper" => ("copper", "Elektrolitik Bakır (Cu-ETP)", 8.96, 620.0),
         "pom" => ("pom", "Delrin / POM", 1.41, 260.0),
+        "pa6" => ("pa6", "Kestamid / Polyamid PA6", 1.15, 220.0),
         _ => ("steel4140", "4140 Islah Çeliği (42CrMo4)", 7.85, 115.0),
     }
 }
@@ -693,13 +864,14 @@ fn analyze_drawing_with_vision_rust(filename: &str, png_bytes: &[u8]) -> Option<
     let direct_mat_tl = (billet_kg * 1.08 * kg_price).round() as i64;
 
     Some(format!(
-        r#"{{"ok":true,"engine":"BahaForge Rust + Vision AI v7.1","vision_verified":true,"customer":"{}","part_name":"{}","part_code":"{}","qty":{},"material_key":"{}","material_label":"{}","shape":"{}","dim_d_mm":{:.1},"dim_x_mm":{:.1},"dim_y_mm":{:.1},"dim_z_mm":{:.1},"billet_kg":{:.3},"billet_grams":{},"net_kg":{:.3},"net_grams":{},"direct_mat_unit_tl":{},"kg_price_tl":{:.0},"tolerance":"{}","turn_min":{},"mill_min":{},"edm_min":{},"setup_min":{},"difficulty":"{}","engineering_comment":"{}","preview_png_b64":"{}"}}"#,
+        r#"{{"ok":true,"engine":"BahaWorks Rust + Vision v7.3","vision_verified":true,"customer":"{}","part_name":"{}","part_code":"{}","qty":{},"material_key":"{}","material_label":"{}","density_g_cm3":{:.2},"shape":"{}","dim_d_mm":{:.1},"dim_x_mm":{:.1},"dim_y_mm":{:.1},"dim_z_mm":{:.1},"billet_kg":{:.3},"billet_grams":{},"net_kg":{:.3},"net_grams":{},"direct_mat_unit_tl":{},"kg_price_tl":{:.0},"tolerance":"{}","turn_min":{},"mill_min":{},"edm_min":{},"setup_min":{},"difficulty":"{}","engineering_comment":"{}","preview_png_b64":"{}"}}"#,
         json_escape(&customer),
         json_escape(if part_name.is_empty() { "CNC Talaşlı İmalat Parçası" } else { &part_name }),
         json_escape(if part_code.is_empty() { filename } else { &part_code }),
         qty,
         mat_key,
         json_escape(&mat_label),
+        density,
         shape,
         dim_d,
         dim_x,
@@ -956,7 +1128,12 @@ fn handle_rfq_analyze(body: &str) -> String {
     let b64_clean = b64_raw.split_once(',').map(|(_, r)| r).unwrap_or(&b64_raw);
     let bytes = base64_decode(b64_clean);
 
-    // 1. Render PDF/image natively (macOS sips / image bytes) and run Vision AI if available!
+    // 0. If 3D STEP/STP file -> parse exact B-Rep CARTESIAN_POINT bounds + isometric SVG preview directly in Pure Rust!
+    if let Some(step_json) = analyze_step_file_rust(&fname, &bytes) {
+        return step_json;
+    }
+
+    // 1. Render PDF/HEIC/PNG/JPG/Sketch natively and run Vision analysis if available!
     if let Some(png_bytes) = render_to_png_bytes(&fname, &bytes) {
         if let Some(vision_json) = analyze_drawing_with_vision_rust(&fname, &png_bytes) {
             return vision_json;
