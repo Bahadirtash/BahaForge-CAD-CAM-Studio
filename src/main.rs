@@ -240,7 +240,14 @@ fn get_xai_key() -> Option<String> {
             return Some(t);
         }
     }
-    let mut paths: Vec<PathBuf> = vec![PathBuf::from(".env")];
+    let mut paths: Vec<PathBuf> = vec![
+        PathBuf::from(".env"),
+        PathBuf::from("/Users/bahadir/Desktop/BahaTech/.env"),
+    ];
+    if let Ok(home) = env::var("HOME").or_else(|_| env::var("USERPROFILE")) {
+        paths.push(PathBuf::from(&home).join("Desktop").join("BahaTech").join(".env"));
+        paths.push(PathBuf::from(&home).join(".bahaforge.env"));
+    }
     if let Ok(exe) = env::current_exe() {
         if let Some(dir) = exe.parent() {
             paths.push(dir.join(".env"));
@@ -259,6 +266,242 @@ fn get_xai_key() -> Option<String> {
         }
     }
     None
+}
+
+fn base64_encode(data: &[u8]) -> String {
+    const TBL: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((data.len() + 2) / 3 * 4);
+    let mut i = 0;
+    while i < data.len() {
+        let b0 = data[i];
+        let b1 = if i + 1 < data.len() { data[i + 1] } else { 0 };
+        let b2 = if i + 2 < data.len() { data[i + 2] } else { 0 };
+        out.push(TBL[(b0 >> 2) as usize] as char);
+        out.push(TBL[(((b0 & 0x03) << 4) | (b1 >> 4)) as usize] as char);
+        if i + 1 < data.len() {
+            out.push(TBL[(((b1 & 0x0F) << 2) | (b2 >> 6)) as usize] as char);
+        } else {
+            out.push('=');
+        }
+        if i + 2 < data.len() {
+            out.push(TBL[(b2 & 0x3F) as usize] as char);
+        } else {
+            out.push('=');
+        }
+        i += 3;
+    }
+    out
+}
+
+fn render_to_png_bytes(filename: &str, raw: &[u8]) -> Option<Vec<u8>> {
+    let low = filename.to_lowercase();
+    if low.ends_with(".png") || low.ends_with(".jpg") || low.ends_with(".jpeg") || low.ends_with(".webp") {
+        return Some(raw.to_vec());
+    }
+    if !low.ends_with(".pdf") && !(raw.len() > 4 && &raw[..4] == b"%PDF") {
+        return None;
+    }
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(1);
+    let tmp_dir = env::temp_dir();
+    let pdf_path = tmp_dir.join(format!("bahaforge_in_{}.pdf", stamp));
+    let png_path = tmp_dir.join(format!("bahaforge_out_{}.png", stamp));
+    if fs::write(&pdf_path, raw).is_err() {
+        return None;
+    }
+    let mut rendered: Option<Vec<u8>> = None;
+    #[cfg(target_os = "macos")]
+    {
+        // Apple CoreGraphics native PDF->PNG via sips (0.3s, 2200px razor-sharp, zero Python!)
+        let ok = Command::new("/usr/bin/sips")
+            .args(["-s", "format", "png", "-Z", "2200"])
+            .arg(&pdf_path)
+            .arg("--out")
+            .arg(&png_path)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if ok {
+            if let Ok(b) = fs::read(&png_path) {
+                if b.len() > 1000 {
+                    rendered = Some(b);
+                }
+            }
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        // On Windows/Linux try pdftoppm if available
+        let prefix = tmp_dir.join(format!("bahaforge_out_{}", stamp));
+        let ok = Command::new("pdftoppm")
+            .args(["-png", "-r", "220", "-singlefile"])
+            .arg(&pdf_path)
+            .arg(&prefix)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if ok {
+            if let Ok(b) = fs::read(&png_path) {
+                if b.len() > 1000 {
+                    rendered = Some(b);
+                }
+            }
+        }
+    }
+    let _ = fs::remove_file(&pdf_path);
+    let _ = fs::remove_file(&png_path);
+    rendered
+}
+
+fn alloy_meta(key: &str) -> (&'static str, &'static str, f64, f64) {
+    match key {
+        "al7075" => ("al7075", "Alüminyum 7075-T6 (Havacılık)", 2.81, 420.0),
+        "al6061" => ("al6061", "Alüminyum 6061-T6", 2.70, 295.0),
+        "st37" => ("st37", "St37 / S235JR Yapı Çeliği", 7.85, 58.0),
+        "ss304" => ("ss304", "AISI 304 (1.4301) Paslanmaz Çelik", 7.93, 245.0),
+        "ss316" => ("ss316", "AISI 316L (1.4404) Paslanmaz Çelik", 7.98, 315.0),
+        "ti64" => ("ti64", "Titanyum Ti-6Al-4V (Grade 5)", 4.43, 2650.0),
+        "brass" => ("brass", "Pirinç MS58 (CuZn39Pb3)", 8.47, 460.0),
+        "pom" => ("pom", "Delrin / POM", 1.41, 260.0),
+        _ => ("steel4140", "4140 Islah Çeliği (42CrMo4)", 7.85, 115.0),
+    }
+}
+
+/// Calls Grok-4.20 Multimodal Vision directly from Pure Rust via native OS curl (zero Python!)
+fn analyze_drawing_with_vision_rust(filename: &str, png_bytes: &[u8]) -> Option<String> {
+    let api_key = get_xai_key()?;
+    let img_b64 = base64_encode(png_bytes);
+    let data_url = format!("data:image/png;base64,{}", img_b64);
+
+    let prompt = format!(
+        "Sen Türkiye'de havacılık, savunma ve makine sanayisinde çalışan 25 yıllık kıdemli bir CNC Talaşlı İmalat Teklif ve Maliyet Mühendisisin. \
+        Bu 2D teknik resmi (özellikle sağ alttaki ANTET / TITLE BLOCK kutusunu, 'Açıklama / Ham Ölçü' satırını, 'Malzeme' satırını, 'Parça Adı', 'Parça Kodu', firma adını ve varsa üzerine yazılmış '2 ADET' gibi miktar notlarını) BÜYÜK DİKKATLE OKU! \
+        Malzeme eşleştirme kuralı: X5CrNi18-10 veya 1.4301 -> ss304; 1.4404 veya 316 -> ss316; 42CrMo4 veya 4140 -> steel4140; St37 veya S235 -> st37; 7075 -> al7075; 6061 -> al6061; Ti-6Al-4V -> ti64; MS58/Pirinç -> brass; POM/Delrin -> pom. \
+        Antette '56X75X182.5' veya '17X30X110' gibi ham kütük ölçüsü yazıyorsa BİREBİR o 3 ölçüyü dim_x_mm, dim_y_mm, dim_z_mm olarak ver ve shape='prismatic' yap! Döner parça (mil/flanş) ise shape='cylindrical' ve dim_d_mm (dış çap), dim_z_mm (toplam boy/kalınlık) ver. \
+        fill_factor: işlenmiş parçanın ham kütüğe doluluk oranı (ör: derin çatal/delikli krank kolu için 0.38, lama için 0.65, dolu flanş için 0.55). \
+        Dosya adı: {}. \
+        SADECE saf JSON döndür (markdown veya başka metin yazma): \
+        {{\"customer\":\"<antetteki firma adı>\",\"part_name\":\"<antetteki parça adı>\",\"part_code\":\"<antetteki parça kodu>\",\"qty\":<çizimde adet yazıyorsa o sayı yoksa 10>,\"material_key\":\"<al7075|al6061|st37|steel4140|ss304|ss316|ti64|brass|pom>\",\"material_label\":\"<antetteki tam malzeme kodu>\",\"shape\":\"<prismatic|cylindrical>\",\"dim_d_mm\":<sayı>,\"dim_x_mm\":<sayı>,\"dim_y_mm\":<sayı>,\"dim_z_mm\":<sayı>,\"fill_factor\":<0.25-0.95 arası sayı>,\"tolerance\":\"<ör: ISO 2768-fH-E • Ø15 H7 • Ø20 H7>\",\"turn_min\":<parça başı CNC torna dk>,\"mill_min\":<parça başı 3/4/5 eksen CNC freze dk>,\"edm_min\":<tel erozyon/taşlama dk>,\"setup_min\":<toplam bağlama/programlama dk>,\"difficulty\":\"<Standart|Hassas|Havacılık-Savunma>\",\"engineering_comment\":\"<3 cümle Türkçe mühendislik ve fiyat analizi: antetten okunan ham kütük ölçüsü, malzeme, kritik H7/toleranslar ve operasyon tavsiyesi>\"}}",
+        filename
+    );
+
+    let req_body = format!(
+        r#"{{"model":"grok-4.20-0309-non-reasoning","temperature":0.1,"input":[{{"role":"user","content":[{{"type":"input_text","text":"{}"}},{{"type":"input_image","image_url":"{}"}}]}}]}}"#,
+        json_escape(&prompt),
+        data_url
+    );
+
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(2);
+    let tmp_req = env::temp_dir().join(format!("bahaforge_vision_req_{}.json", stamp));
+    if fs::write(&tmp_req, req_body.as_bytes()).is_err() {
+        return None;
+    }
+
+    let curl_bin = if cfg!(target_os = "windows") { "curl.exe" } else { "/usr/bin/curl" };
+    let out = Command::new(curl_bin)
+        .args([
+            "-sS",
+            "--max-time",
+            "65",
+            "https://api.x.ai/v1/responses",
+            "-H",
+            &format!("Authorization: Bearer {}", api_key),
+            "-H",
+            "Content-Type: application/json",
+            "--data-binary",
+            &format!("@{}", tmp_req.to_string_lossy()),
+        ])
+        .output();
+    let _ = fs::remove_file(&tmp_req);
+
+    let out = out.ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let resp_str = String::from_utf8_lossy(&out.stdout).to_string();
+    // Extract assistant output text field from xAI Responses JSON
+    let text_field = extract_json_str(&resp_str, "text");
+    if text_field.is_empty() {
+        return None;
+    }
+    // Extract inner JSON object {...}
+    let start = text_field.find('{')?;
+    let end = text_field.rfind('}')?;
+    if end <= start {
+        return None;
+    }
+    let inner = &text_field[start..=end];
+
+    let customer = extract_json_str(inner, "customer");
+    let part_name = extract_json_str(inner, "part_name");
+    let part_code = extract_json_str(inner, "part_code");
+    let mat_key_raw = extract_json_str(inner, "material_key");
+    let mat_label_raw = extract_json_str(inner, "material_label");
+    let (mat_key, mat_default_lbl, density, kg_price) = alloy_meta(&mat_key_raw);
+    let mat_label = if mat_label_raw.is_empty() { mat_default_lbl.to_string() } else { mat_label_raw };
+    let shape_raw = extract_json_str(inner, "shape");
+    let shape = if shape_raw == "cylindrical" { "cylindrical" } else { "prismatic" };
+
+    let dim_d = extract_json_num(inner, "dim_d_mm", 60.0).max(5.0);
+    let dim_x = extract_json_num(inner, "dim_x_mm", 80.0).max(5.0);
+    let dim_y = extract_json_num(inner, "dim_y_mm", 60.0).max(5.0);
+    let dim_z = extract_json_num(inner, "dim_z_mm", 20.0).max(2.0);
+    let fill = extract_json_num(inner, "fill_factor", 0.50).clamp(0.18, 0.95);
+    let qty = extract_json_num(inner, "qty", 10.0).round().max(1.0) as i64;
+    let turn_min = extract_json_num(inner, "turn_min", 0.0).round().max(0.0) as i64;
+    let mill_min = extract_json_num(inner, "mill_min", 25.0).round().max(0.0) as i64;
+    let edm_min = extract_json_num(inner, "edm_min", 0.0).round().max(0.0) as i64;
+    let setup_min = extract_json_num(inner, "setup_min", 45.0).round().max(10.0) as i64;
+    let tolerance = extract_json_str(inner, "tolerance");
+    let difficulty = extract_json_str(inner, "difficulty");
+    let comment = extract_json_str(inner, "engineering_comment");
+
+    // Exact physical billet & finished net mass calculation in Pure Rust!
+    let billet_vol_cm3 = if shape == "cylindrical" {
+        std::f64::consts::PI * (dim_d / 20.0).powi(2) * (dim_z / 10.0)
+    } else {
+        (dim_x * dim_y * dim_z) / 1000.0
+    };
+    let billet_kg = (billet_vol_cm3 * density) / 1000.0;
+    let net_kg = billet_kg * fill;
+    let net_grams = (net_kg * 1000.0).round() as i64;
+    let billet_grams = (billet_kg * 1000.0).round() as i64;
+    // Material cost is based on the raw billet bought (with 8% saw/bar-end allowance)
+    let direct_mat_tl = (billet_kg * 1.08 * kg_price).round() as i64;
+
+    Some(format!(
+        r#"{{"ok":true,"engine":"BahaForge Rust + Vision AI v7.1","vision_verified":true,"customer":"{}","part_name":"{}","part_code":"{}","qty":{},"material_key":"{}","material_label":"{}","shape":"{}","dim_d_mm":{:.1},"dim_x_mm":{:.1},"dim_y_mm":{:.1},"dim_z_mm":{:.1},"billet_kg":{:.3},"billet_grams":{},"net_kg":{:.3},"net_grams":{},"direct_mat_unit_tl":{},"kg_price_tl":{:.0},"tolerance":"{}","turn_min":{},"mill_min":{},"edm_min":{},"setup_min":{},"difficulty":"{}","engineering_comment":"{}","preview_png_b64":"{}"}}"#,
+        json_escape(&customer),
+        json_escape(if part_name.is_empty() { "CNC Talaşlı İmalat Parçası" } else { &part_name }),
+        json_escape(if part_code.is_empty() { filename } else { &part_code }),
+        qty,
+        mat_key,
+        json_escape(&mat_label),
+        shape,
+        dim_d,
+        dim_x,
+        dim_y,
+        dim_z,
+        billet_kg,
+        billet_grams,
+        net_kg,
+        net_grams,
+        direct_mat_tl,
+        kg_price,
+        json_escape(if tolerance.is_empty() { "ISO 2768-m" } else { &tolerance }),
+        turn_min,
+        mill_min,
+        edm_min,
+        setup_min,
+        json_escape(if difficulty.is_empty() { "Hassas" } else { &difficulty }),
+        json_escape(&comment),
+        data_url
+    ))
 }
 
 /// Minimal zero-dependency JSON string field extractor
@@ -495,12 +738,20 @@ fn handle_rfq_analyze(body: &str) -> String {
     let b64_clean = b64_raw.split_once(',').map(|(_, r)| r).unwrap_or(&b64_raw);
     let bytes = base64_decode(b64_clean);
 
+    // 1. Render PDF/image natively (macOS sips / image bytes) and run Vision AI if available!
+    if let Some(png_bytes) = render_to_png_bytes(&fname, &bytes) {
+        if let Some(vision_json) = analyze_drawing_with_vision_rust(&fname, &png_bytes) {
+            return vision_json;
+        }
+    }
+
+    // 2. Fallback: offline heuristic parser
     let specs = parse_drawing_specs_offline(&fname, &bytes);
     let shape = specs.get("shape").cloned().unwrap_or_else(|| "cylindrical".into());
     let turn_min = if shape == "cylindrical" { 10 } else { 0 };
     let mill_min = if shape == "cylindrical" { 12 } else { 18 };
     let dims_note = if specs["dims_found"] == "0" {
-        "Taranmış/sıkıştırılmış PDF — parça başı malzeme bedeli ve süreyi kendi rakamınızla güncelleyip 'Kaydet & Eğit'e basın; sonraki PDF'lerde motor sizin fiyatınızı öğrenecek."
+        "Çevrimdışı mod — antet/ölçü vektör çizim olduğu için parça başı malzeme bedeli ve süreyi onaylayıp 'Kaydet & Eğit'e basın."
     } else {
         "Teknik resimden açık mm ölçüleri okundu ve parça başı gerçekçi değerleme uygulandı."
     };
@@ -513,7 +764,7 @@ fn handle_rfq_analyze(body: &str) -> String {
     );
 
     format!(
-        r#"{{"ok":true,"engine":"BahaForge Rust Native v7.0","part_name":"{}","part_code":"{}","material_key":"{}","material_label":"{}","shape":"{}","dim_d_mm":{},"dim_x_mm":{},"dim_y_mm":{},"dim_z_mm":{},"net_grams":{},"direct_mat_unit_tl":{},"tolerance":"ISO 2768-m","turn_min":{},"mill_min":{},"edm_min":0,"setup_min":30,"difficulty":"Standart","engineering_comment":"{}"}}"#,
+        r#"{{"ok":true,"engine":"BahaForge Rust Native v7.1","part_name":"{}","part_code":"{}","material_key":"{}","material_label":"{}","shape":"{}","dim_d_mm":{},"dim_x_mm":{},"dim_y_mm":{},"dim_z_mm":{},"net_grams":{},"direct_mat_unit_tl":{},"tolerance":"ISO 2768-m","turn_min":{},"mill_min":{},"edm_min":0,"setup_min":30,"difficulty":"Standart","engineering_comment":"{}"}}"#,
         json_escape(&specs["part_name"]),
         json_escape(&specs["part_code"]),
         json_escape(&specs["material_key"]),

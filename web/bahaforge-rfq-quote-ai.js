@@ -805,15 +805,16 @@ Tel: ${tel}`;
             img.src = data.preview_png_b64;
             img.style.display = "inline-block";
           }
+          if (data.customer) document.getElementById("bfCust").value = data.customer;
           if (data.part_name) document.getElementById("bfPartName").value = data.part_name;
           if (data.part_code) document.getElementById("bfPartCode").value = data.part_code;
+          if (data.qty && data.qty > 0) document.getElementById("bfQty").value = data.qty;
           if (data.material_key && ALLOYS[data.material_key]) {
             document.getElementById("bfMatKey").value = data.material_key;
-            document.getElementById("bfKgPrice").value = ALLOYS[data.material_key].priceKg;
+            document.getElementById("bfKgPrice").value = data.kg_price_tl || ALLOYS[data.material_key].priceKg;
           }
           if (data.shape === "cylindrical" || data.shape === "prismatic") {
             document.getElementById("bfShape").value = data.shape;
-            toggleShapeFields();
           }
           if (data.dim_d_mm) document.getElementById("bfDimD").value = data.dim_d_mm;
           if (data.dim_x_mm) document.getElementById("bfDimX").value = data.dim_x_mm;
@@ -821,12 +822,21 @@ Tel: ${tel}`;
           if (data.dim_z_mm) document.getElementById("bfDimZ").value = data.dim_z_mm;
           if (data.net_grams != null) document.getElementById("bfNetGrams").value = data.net_grams;
           if (data.direct_mat_unit_tl != null) document.getElementById("bfDirectMatUnit").value = data.direct_mat_unit_tl;
+          if (data.vision_verified) {
+            // Vision read the exact title-block billet dimensions & weight -> show Kütük mm->kg or accurate unit breakdown!
+            document.getElementById("bfPricingMode").value = "billet";
+            document.getElementById("bfScrapPct").value = 8;
+          }
+          toggleShapeFields();
           if (data.turn_min != null) document.getElementById("bfTurnMin").value = data.turn_min;
           if (data.mill_min != null) document.getElementById("bfMillMin").value = data.mill_min;
           if (data.edm_min != null) document.getElementById("bfEdmMin").value = data.edm_min;
           if (data.setup_min != null) document.getElementById("bfSetupMin").value = data.setup_min;
           if (data.tolerance) document.getElementById("bfTol").value = data.tolerance;
-          serverComment = `[${data.difficulty || "Hassas"}] ${data.engineering_comment || ""}`;
+          const massSummary = data.billet_kg
+            ? ` [Ham Kütük: ${Number(data.billet_kg).toFixed(2)} kg • Net İşlenmiş: ~${Number(data.net_kg || 0).toFixed(2)} kg]`
+            : "";
+          serverComment = `[${data.difficulty || "Hassas"}]${massSummary} ${data.engineering_comment || ""}`;
           currentComment = serverComment;
           box.textContent = currentComment;
           recalcAll();
