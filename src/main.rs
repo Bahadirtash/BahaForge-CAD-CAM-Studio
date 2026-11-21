@@ -354,18 +354,27 @@ fn base64_decode(input: &str) -> Vec<u8> {
     out
 }
 
-/// Pure-Rust heuristic engineering drawing text/dimension parser (works 100% offline!)
+/// Pure-Rust heuristic engineering drawing parser (NEVER mistakes PDF MediaBox 595x842 or object IDs for mm!)
 fn parse_drawing_specs_offline(filename: &str, raw: &[u8]) -> HashMap<&'static str, String> {
     let mut text = String::new();
     text.push_str(filename);
     text.push(' ');
-    // Scan ASCII printable tokens embedded in PDF/text stream
+    // Only extract short readable non-structural tokens; skip PDF headers/MediaBox/object IDs
     let mut cur = String::new();
-    for &b in raw.iter().take(600_000) {
+    for &b in raw.iter().take(400_000) {
         if b.is_ascii_graphic() || b == b' ' {
             cur.push(b as char);
         } else {
-            if cur.len() >= 3 && cur.len() <= 140 {
+            let low_cur = cur.to_lowercase();
+            let is_pdf_internal = low_cur.contains("mediabox")
+                || low_cur.contains("cropbox")
+                || low_cur.contains("fontbbox")
+                || low_cur.contains("endobj")
+                || low_cur.contains("xref")
+                || low_cur.contains("flatedecode")
+                || low_cur.contains("pdf-1.")
+                || low_cur.contains("00000 n");
+            if cur.len() >= 3 && cur.len() <= 120 && !is_pdf_internal {
                 text.push_str(&cur);
                 text.push(' ');
             }
@@ -374,22 +383,22 @@ fn parse_drawing_specs_offline(filename: &str, raw: &[u8]) -> HashMap<&'static s
     }
     let low = text.to_lowercase();
 
-    let (mat_key, mat_label) = if low.contains("7075") {
-        ("al7075", "Alüminyum 7075-T6")
+    let (mat_key, mat_label, density, kg_price) = if low.contains("7075") {
+        ("al7075", "Alüminyum 7075-T6", 2.81f64, 420.0f64)
     } else if low.contains("6061") || low.contains("alumin") || low.contains("alümin") {
-        ("al6061", "Alüminyum 6061-T6")
+        ("al6061", "Alüminyum 6061-T6", 2.70, 295.0)
     } else if low.contains("316") {
-        ("ss316", "AISI 316L Paslanmaz")
+        ("ss316", "AISI 316L Paslanmaz", 7.98, 315.0)
     } else if low.contains("304") || low.contains("stainless") || low.contains("paslanmaz") {
-        ("ss304", "AISI 304 Paslanmaz Çelik")
+        ("ss304", "AISI 304 Paslanmaz Çelik", 7.93, 245.0)
     } else if low.contains("ti-6") || low.contains("titan") {
-        ("ti64", "Titanyum Ti-6Al-4V")
+        ("ti64", "Titanyum Ti-6Al-4V", 4.43, 2650.0)
     } else if low.contains("brass") || low.contains("pirin") || low.contains("ms58") {
-        ("brass", "Pirinç MS58")
+        ("brass", "Pirinç MS58", 8.47, 460.0)
     } else if low.contains("st37") || low.contains("s235") {
-        ("st37", "St37 / S235JR")
+        ("st37", "St37 / S235JR", 7.85, 58.0)
     } else {
-        ("steel4140", "4140 Islah Çeliği")
+        ("steel4140", "4140 Islah Çeliği", 7.85, 115.0)
     };
 
     let is_cyl = low.contains("flange")
@@ -401,25 +410,58 @@ fn parse_drawing_specs_offline(filename: &str, raw: &[u8]) -> HashMap<&'static s
         || low.contains("ø")
         || low.contains("dia");
 
-    // Extract plausible mm numbers (between 8 and 800)
-    let mut nums: Vec<f64> = Vec::new();
-    let mut tok = String::new();
-    for ch in text.chars() {
-        if ch.is_ascii_digit() || ch == '.' {
-            tok.push(ch);
-        } else {
-            if let Ok(v) = tok.parse::<f64>() {
-                if (8.0..=600.0).contains(&v) && !nums.iter().any(|x| (*x - v).abs() < 0.01) {
-                    nums.push(v);
+    // Extract ONLY explicitly labeled mm dimensions (e.g., "120mm", "120 mm", "Ø80", "D60", "80x40")
+    // NEVER grab raw arbitrary PDF numbers like 595 / 842 / 612 / 792!
+    let mut explicit_dims: Vec<f64> = Vec::new();
+    let tokens: Vec<&str> = text.split_whitespace().collect();
+    for (idx, tok) in tokens.iter().enumerate() {
+        let clean = tok.trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '.' && c != 'x' && c != 'X');
+        let tl = clean.to_lowercase();
+        // Pattern 1: "120mm" or "45.5mm"
+        if let Some(num_s) = tl.strip_suffix("mm") {
+            if let Ok(v) = num_s.parse::<f64>() {
+                if (4.0..=320.0).contains(&v) {
+                    explicit_dims.push(v);
                 }
             }
-            tok.clear();
+        }
+        // Pattern 2: "120" followed by "mm"
+        if idx + 1 < tokens.len() && tokens[idx + 1].to_lowercase().starts_with("mm") {
+            if let Ok(v) = clean.parse::<f64>() {
+                if (4.0..=320.0).contains(&v) {
+                    explicit_dims.push(v);
+                }
+            }
+        }
+        // Pattern 3: "80x60" or "120x30"
+        if tl.contains('x') {
+            let parts: Vec<&str> = tl.split('x').collect();
+            if parts.len() == 2 || parts.len() == 3 {
+                let parsed: Vec<f64> = parts.iter().filter_map(|p| p.parse::<f64>().ok()).filter(|v| (4.0..=320.0).contains(v)).collect();
+                if parsed.len() == parts.len() {
+                    explicit_dims.extend(parsed);
+                }
+            }
         }
     }
-    nums.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
-    let d1 = nums.first().copied().unwrap_or(120.0);
-    let d2 = nums.get(1).copied().unwrap_or(80.0);
-    let d3 = nums.get(2).copied().unwrap_or(28.0).min(120.0);
+
+    // Remove PDF standard page point sizes if any slipped through (595, 842, 612, 792)
+    explicit_dims.retain(|v| (*v - 595.0).abs() > 2.0 && (*v - 842.0).abs() > 2.0 && (*v - 612.0).abs() > 2.0 && (*v - 792.0).abs() > 2.0);
+    explicit_dims.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Conservative realistic defaults (Ø60x20 mm = ~0.45 kg) when PDF is scanned/compressed so price is NEVER wildly inflated!
+    let d1 = explicit_dims.first().copied().unwrap_or(60.0).clamp(12.0, 260.0);
+    let d2 = explicit_dims.get(1).copied().unwrap_or(50.0).clamp(10.0, 220.0);
+    let d3 = explicit_dims.get(2).copied().unwrap_or(20.0).clamp(5.0, 80.0);
+
+    // Realistic hollow/machined net mass factor (~0.62 of bounding cylinder/box)
+    let raw_vol_cm3 = if is_cyl {
+        std::f64::consts::PI * (d1 / 20.0).powi(2) * (d3 / 10.0)
+    } else {
+        (d1 * d2 * d3) / 1000.0
+    };
+    let net_grams = (raw_vol_cm3 * 0.62 * density).clamp(40.0, 12000.0);
+    let direct_mat_tl = ((net_grams / 1000.0) * 1.15 * kg_price).clamp(25.0, 3500.0);
 
     let clean_code: String = filename
         .split('.')
@@ -432,7 +474,7 @@ fn parse_drawing_specs_offline(filename: &str, raw: &[u8]) -> HashMap<&'static s
         .to_uppercase();
 
     let mut m = HashMap::new();
-    m.insert("part_name", if is_cyl { "CNC Talaşlı İmalat Döner Parça / Flanş" } else { "CNC İşlenmiş Prizmatik Gövde" }.to_string());
+    m.insert("part_name", if is_cyl { "CNC Talaşlı İmalat Parçası" } else { "CNC İşlenmiş Makine Parçası" }.to_string());
     m.insert("part_code", if clean_code.is_empty() { "BHF-2026-01".to_string() } else { clean_code });
     m.insert("material_key", mat_key.to_string());
     m.insert("material_label", mat_label.to_string());
@@ -441,6 +483,9 @@ fn parse_drawing_specs_offline(filename: &str, raw: &[u8]) -> HashMap<&'static s
     m.insert("dim_x", format!("{:.1}", d1));
     m.insert("dim_y", format!("{:.1}", d2));
     m.insert("dim_z", format!("{:.1}", d3));
+    m.insert("net_grams", format!("{:.0}", net_grams));
+    m.insert("direct_mat_tl", format!("{:.0}", direct_mat_tl));
+    m.insert("dims_found", if explicit_dims.is_empty() { "0".into() } else { explicit_dims.len().to_string() });
     m
 }
 
@@ -452,18 +497,23 @@ fn handle_rfq_analyze(body: &str) -> String {
 
     let specs = parse_drawing_specs_offline(&fname, &bytes);
     let shape = specs.get("shape").cloned().unwrap_or_else(|| "cylindrical".into());
-    let turn_min = if shape == "cylindrical" { 18 } else { 0 };
-    let mill_min = if shape == "cylindrical" { 20 } else { 36 };
+    let turn_min = if shape == "cylindrical" { 10 } else { 0 };
+    let mill_min = if shape == "cylindrical" { 12 } else { 18 };
+    let dims_note = if specs["dims_found"] == "0" {
+        "Taranmış/sıkıştırılmış PDF — parça başı malzeme bedeli ve süreyi kendi rakamınızla güncelleyip 'Kaydet & Eğit'e basın; sonraki PDF'lerde motor sizin fiyatınızı öğrenecek."
+    } else {
+        "Teknik resimden açık mm ölçüleri okundu ve parça başı gerçekçi değerleme uygulandı."
+    };
     let comment = format!(
-        "Rust Yerel Teknik Resim Motoru ({} bayt) analizi tamamlandı: {} malzemesi için {} formunda kütük seçildi. {} dk CNC işleme + 45 dk setup önerilir. Ölçüleri doğrulayıp tek tıkla müşteriye malzeme + işçilik teklif maili gönderebilirsiniz.",
-        bytes.len(),
-        specs.get("material_label").unwrap_or(&"4140".to_string()),
-        if shape == "cylindrical" { "silindirik" } else { "prizmatik" },
-        turn_min + mill_min
+        "Parça Başı Değerleme ({}, net ~{} g, tahmini malzeme {} ₺/ad): {}",
+        specs["material_label"],
+        specs["net_grams"],
+        specs["direct_mat_tl"],
+        dims_note
     );
 
     format!(
-        r#"{{"ok":true,"engine":"BahaForge Rust Native v7.0","part_name":"{}","part_code":"{}","material_key":"{}","material_label":"{}","shape":"{}","dim_d_mm":{},"dim_x_mm":{},"dim_y_mm":{},"dim_z_mm":{},"tolerance":"ISO 2768-m","turn_min":{},"mill_min":{},"edm_min":0,"setup_min":45,"difficulty":"Hassas","engineering_comment":"{}"}}"#,
+        r#"{{"ok":true,"engine":"BahaForge Rust Native v7.0","part_name":"{}","part_code":"{}","material_key":"{}","material_label":"{}","shape":"{}","dim_d_mm":{},"dim_x_mm":{},"dim_y_mm":{},"dim_z_mm":{},"net_grams":{},"direct_mat_unit_tl":{},"tolerance":"ISO 2768-m","turn_min":{},"mill_min":{},"edm_min":0,"setup_min":30,"difficulty":"Standart","engineering_comment":"{}"}}"#,
         json_escape(&specs["part_name"]),
         json_escape(&specs["part_code"]),
         json_escape(&specs["material_key"]),
@@ -473,6 +523,8 @@ fn handle_rfq_analyze(body: &str) -> String {
         specs["dim_x"],
         specs["dim_y"],
         specs["dim_z"],
+        specs["net_grams"],
+        specs["direct_mat_tl"],
         turn_min,
         mill_min,
         json_escape(&comment)
@@ -578,6 +630,7 @@ struct MlRecord {
     vol_cm3: f64,
     qty: f64,
     kg_price: f64,
+    direct_mat_unit: f64,
     scrap_pct: f64,
     turn_min: f64,
     turn_rate: f64,
@@ -616,7 +669,8 @@ fn parse_ml_record(line: &str) -> Option<MlRecord> {
         vol_cm3: extract_json_num(line, "volCm3", 100.0).max(1.0),
         qty: extract_json_num(line, "qty", 25.0).max(1.0),
         kg_price: extract_json_num(line, "kgPrice", 200.0),
-        scrap_pct: extract_json_num(line, "scrapPct", 18.0),
+        direct_mat_unit: extract_json_num(line, "directMatUnit", 160.0),
+        scrap_pct: extract_json_num(line, "scrapPct", 15.0),
         turn_min: extract_json_num(line, "turnMin", 0.0),
         turn_rate: extract_json_num(line, "turnRate", 1650.0),
         mill_min: extract_json_num(line, "millMin", 0.0),
@@ -688,8 +742,8 @@ fn handle_ml_predict(body: &str) -> String {
     scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
     scored.truncate(5);
 
-    let (mut wsum, mut turn, mut mill, mut edm, mut setup, mut kgp, mut trate, mut mrate, mut marg, mut scrap, mut unitp) =
-        (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+    let (mut wsum, mut turn, mut mill, mut edm, mut setup, mut kgp, mut dmat, mut trate, mut mrate, mut marg, mut scrap, mut unitp) =
+        (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     for (m, sim, vscale) in &scored {
         let w = sim * sim;
         wsum += w;
@@ -698,26 +752,28 @@ fn handle_ml_predict(body: &str) -> String {
         edm += w * m.edm_min * vscale;
         setup += w * m.setup_min;
         kgp += w * m.kg_price;
+        dmat += w * m.direct_mat_unit;
         trate += w * m.turn_rate;
         mrate += w * m.mill_rate;
         marg += w * m.margin_pct;
         scrap += w * m.scrap_pct;
-        unitp += w * m.sell_unit * vscale;
+        unitp += w * m.sell_unit;
     }
 
     let top = scored[0].0;
     let top_sim = scored[0].1;
     let conf = (((n.min(12) as f64 / 12.0) * 58.0 + top_sim * 40.0).round() as i32).min(97);
     let expl = format!(
-        "BahaForge Rust Yerel ML ({} geçmiş işten öğrendi, Güven %{}): En yakın referans '{} ({})' (%{} benzer). Atölyenizin gerçek tezgâh saatleri, malzeme fiyatı ve kâr marjı otomatik dolduruldu.",
+        "BahaForge Rust Yerel ML ({} geçmiş işten öğrendi, Güven %{}): En yakın referans '{} ({})' (%{} benzer). Parça başı malzeme bedeli, tezgâh süreleri ve kâr marjı otomatik dolduruldu.",
         n, conf, top.part_name, top.part_code, (top_sim * 100.0).round() as i32
     );
 
     format!(
-        r#"{{"ok":true,"trained":{},"confidence":{},"explanation":"{}","prediction":{{"turnMin":{},"millMin":{},"edmMin":{},"setupMin":{},"kgPrice":{},"turnRate":{},"millRate":{},"marginPct":{},"scrapPct":{},"estUnitTl":{}}}}}"#,
+        r#"{{"ok":true,"trained":{},"confidence":{},"explanation":"{}","prediction":{{"directMatUnit":{},"turnMin":{},"millMin":{},"edmMin":{},"setupMin":{},"kgPrice":{},"turnRate":{},"millRate":{},"marginPct":{},"scrapPct":{},"estUnitTl":{}}}}}"#,
         n,
         conf,
         json_escape(&expl),
+        (dmat / wsum).round() as i64,
         (turn / wsum).round() as i64,
         (mill / wsum).round() as i64,
         (edm / wsum).round() as i64,

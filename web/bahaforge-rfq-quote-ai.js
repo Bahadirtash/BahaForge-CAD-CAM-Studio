@@ -53,7 +53,7 @@
       return { m, sim, vScale: Math.max(0.45, Math.min(2.6, Math.pow(Math.max(volTarget, 1) / Math.max(m.volCm3 || 1, 1), 0.38))) };
     }).sort((a, b) => b.sim - a.sim).slice(0, 5);
 
-    let wSum = 0, turn = 0, mill = 0, edm = 0, setup = 0, kgP = 0, tRate = 0, mRate = 0, marg = 0, scrap = 0, unitP = 0;
+    let wSum = 0, turn = 0, mill = 0, edm = 0, setup = 0, kgP = 0, dMat = 0, tRate = 0, mRate = 0, marg = 0, scrap = 0, unitP = 0;
     scored.forEach(({ m, sim, vScale }) => {
       const w = sim * sim;
       wSum += w;
@@ -62,11 +62,12 @@
       edm   += w * (m.edmMin || 0) * vScale;
       setup += w * (m.setupMin || 45);
       kgP   += w * (m.kgPrice || (ALLOYS[sample.materialKey]?.priceKg || 150));
+      dMat  += w * (m.directMatUnit || 160);
       tRate += w * (m.turnRate || 1650);
       mRate += w * (m.millRate || 2100);
       marg  += w * (m.marginPct || 28);
-      scrap += w * (m.scrapPct || 18);
-      unitP += w * (m.sellUnit || 0) * vScale;
+      scrap += w * (m.scrapPct || 15);
+      unitP += w * (m.sellUnit || 0);
     });
 
     const n = mem.length;
@@ -90,6 +91,7 @@
         edmMin: Math.round(edm / wSum),
         setupMin: Math.round(setup / wSum),
         kgPrice: Math.round(kgP / wSum),
+        directMatUnit: Math.round(dMat / wSum),
         turnRate: Math.round((tRate / wSum) / 50) * 50,
         millRate: Math.round((mRate / wSum) / 50) * 50,
         marginPct: Math.round(marg / wSum),
@@ -182,26 +184,48 @@
 
   function calcQuote(f) {
     const alloy = ALLOYS[f.materialKey] || ALLOYS.steel4140;
-    const priceKg = Number(f.kgPrice || alloy.priceKg);
+    const priceKg = Number(f.kgPrice ?? alloy.priceKg);
     const density = alloy.density; // g/cm3
+    const qty = Math.max(1, Number(f.qty) || 1);
+    const mode = f.pricingMode || "unit"; // "unit" | "grams" | "billet" | "fason"
 
     let volCm3 = 0;
+    let netKg = 0;
+    let grossKg = 0;
     let billetLabel = "";
-    if (f.shape === "cylindrical") {
-      const rCm = (Number(f.dimD) || 0) / 20.0;
-      const lCm = (Number(f.dimZ) || 0) / 10.0;
-      volCm3 = Math.PI * rCm * rCm * lCm;
-      billetLabel = `Ø${f.dimD} × ${f.dimZ} mm (Silindirik Kütük)`;
+    let matUnit = 0;
+
+    if (mode === "fason") {
+      billetLabel = "Müşteri Malzemeli (Sadece Fason İşçilik)";
+      netKg = (Number(f.netGrams) || 0) / 1000.0;
+      grossKg = netKg;
+      matUnit = 0;
+    } else if (mode === "unit") {
+      netKg = (Number(f.netGrams) || 0) / 1000.0;
+      grossKg = netKg;
+      matUnit = Math.max(0, Number(f.directMatUnit) || 0);
+      billetLabel = `Parça Başı Değerleme${netKg > 0 ? ` (${(netKg * 1000).toFixed(0)} g/ad)` : ""}`;
+    } else if (mode === "grams") {
+      netKg = Math.max(0, Number(f.netGrams) || 0) / 1000.0;
+      grossKg = netKg * (1 + (Number(f.scrapPct) || 0) / 100.0);
+      matUnit = grossKg * priceKg;
+      billetLabel = `Net ${(netKg * 1000).toFixed(0)} g → Fireli ${grossKg.toFixed(3)} kg/ad`;
     } else {
-      volCm3 = ((Number(f.dimX) || 0) * (Number(f.dimY) || 0) * (Number(f.dimZ) || 0)) / 1000.0;
-      billetLabel = `${f.dimX} × ${f.dimY} × ${f.dimZ} mm (Prizmatik Kütük)`;
+      // billet mm -> kg
+      if (f.shape === "cylindrical") {
+        const rCm = (Number(f.dimD) || 0) / 20.0;
+        const lCm = (Number(f.dimZ) || 0) / 10.0;
+        volCm3 = Math.PI * rCm * rCm * lCm;
+        billetLabel = `Ø${f.dimD} × ${f.dimZ} mm (Silindirik Kütük)`;
+      } else {
+        volCm3 = ((Number(f.dimX) || 0) * (Number(f.dimY) || 0) * (Number(f.dimZ) || 0)) / 1000.0;
+        billetLabel = `${f.dimX} × ${f.dimY} × ${f.dimZ} mm (Prizmatik Kütük)`;
+      }
+      netKg = (volCm3 * density) / 1000.0;
+      grossKg = netKg * (1 + (Number(f.scrapPct) || 0) / 100.0);
+      matUnit = grossKg * priceKg;
     }
 
-    const netKg = (volCm3 * density) / 1000.0;
-    const grossKg = netKg * (1 + (Number(f.scrapPct) || 0) / 100.0);
-    const qty = Math.max(1, Number(f.qty) || 1);
-
-    const matUnit = grossKg * priceKg;
     const matTotal = matUnit * qty;
 
     const turnUnit = ((Number(f.turnMin) || 0) / 60.0) * (Number(f.turnRate) || 0);
@@ -224,7 +248,7 @@
     const grandTotal = subTotal + vat;
 
     return {
-      alloy, billetLabel, priceKg, qty,
+      alloy, billetLabel, priceKg, qty, mode,
       netKg, grossKg,
       matUnit, matTotal,
       turnUnit, millUnit, edmUnit, setupUnit, toolUnit, outsideUnit,
@@ -354,28 +378,40 @@
             <div class="bf-field"><label>Teknik Resim / Parça Kodu</label><input id="bfPartCode" value="FLN-304-Ø120" /></div>
           </div>
 
-          <div class="bf-sec-title">2. Malzeme Hesabı (Özgül Ağırlık + Kütük + Fire %)</div>
+          <div class="bf-sec-title">2. Fiyatlandırma Modu &amp; Malzeme Hesabı (Parça Başı / Gram / Kütük)</div>
           <div class="bf-grid-3">
+            <div class="bf-field">
+              <label>Fiyatlandırma Yöntemi</label>
+              <select id="bfPricingMode">
+                <option value="unit" selected>🎯 Parça Başı Değerleme (Adet ₺ — Önerilen)</option>
+                <option value="grams">⚖️ Gerçek Parça Ağırlığı (Gram → ₺)</option>
+                <option value="billet">📐 Kütük Ölçüsünden Hesapla (mm → kg)</option>
+                <option value="fason">🛠️ Müşteri Malzemeli / Sadece Fason İşçilik (0 ₺)</option>
+              </select>
+            </div>
             <div class="bf-field">
               <label>Alaşım / Malzeme</label>
               <select id="bfMatKey">
                 ${Object.entries(ALLOYS).map(([k, v]) => `<option value="${k}">${v.name} (${v.density} g/cm³)</option>`).join("")}
               </select>
             </div>
-            <div class="bf-field">
+            <div class="bf-field" id="bfWrapDirectMat"><label>Parça Başı Malzeme Bedeli (₺/adet)</label><input id="bfDirectMatUnit" type="number" step="10" value="180" /></div>
+
+            <div class="bf-field" id="bfWrapGrams"><label>Parça Net Ağırlığı (Gram — Örn: 450 g)</label><input id="bfNetGrams" type="number" step="10" value="450" /></div>
+            <div class="bf-field" id="bfWrapKgPrice" style="display:none"><label>Kg Birim Fiyatı (₺/kg)</label><input id="bfKgPrice" type="number" step="5" value="245" /></div>
+            <div class="bf-field" id="bfWrapShape" style="display:none">
               <label>Kütük Formu</label>
               <select id="bfShape">
                 <option value="cylindrical">Silindirik Mil / Boru (ØD × L)</option>
                 <option value="prismatic">Prizmatik Blok / Lama (X × Y × Z)</option>
               </select>
             </div>
-            <div class="bf-field"><label>Kg Birim Fiyatı (₺/kg)</label><input id="bfKgPrice" type="number" step="5" value="245" /></div>
 
-            <div class="bf-field" id="bfWrapD"><label>Dış Çap ØD (mm)</label><input id="bfDimD" type="number" step="1" value="120" /></div>
-            <div class="bf-field" id="bfWrapX" style="display:none"><label>En X (mm)</label><input id="bfDimX" type="number" step="1" value="120" /></div>
-            <div class="bf-field" id="bfWrapY" style="display:none"><label>Boy Y (mm)</label><input id="bfDimY" type="number" step="1" value="120" /></div>
-            <div class="bf-field"><label>Uzunluk / Kalınlık Z (mm)</label><input id="bfDimZ" type="number" step="1" value="33" /></div>
-            <div class="bf-field"><label>Kesim &amp; Talaş Fire Payı (%)</label><input id="bfScrapPct" type="number" step="1" value="18" /></div>
+            <div class="bf-field" id="bfWrapD" style="display:none"><label>Dış Çap ØD (mm)</label><input id="bfDimD" type="number" step="1" value="60" /></div>
+            <div class="bf-field" id="bfWrapX" style="display:none"><label>En X (mm)</label><input id="bfDimX" type="number" step="1" value="80" /></div>
+            <div class="bf-field" id="bfWrapY" style="display:none"><label>Boy Y (mm)</label><input id="bfDimY" type="number" step="1" value="60" /></div>
+            <div class="bf-field" id="bfWrapZ" style="display:none"><label>Uzunluk / Kalınlık Z (mm)</label><input id="bfDimZ" type="number" step="1" value="20" /></div>
+            <div class="bf-field" id="bfWrapScrap" style="display:none"><label>Kesim &amp; Talaş Fire Payı (%)</label><input id="bfScrapPct" type="number" step="1" value="15" /></div>
           </div>
 
           <div class="bf-sec-title">3. İşçilik, Tezgâh Süresi &amp; Kâr Marjı</div>
@@ -476,6 +512,9 @@
         phone: document.getElementById("bfPhone").value.trim(),
         partName: document.getElementById("bfPartName").value.trim(),
         partCode: document.getElementById("bfPartCode").value.trim(),
+        pricingMode: document.getElementById("bfPricingMode").value,
+        directMatUnit: Number(document.getElementById("bfDirectMatUnit").value) || 0,
+        netGrams: Number(document.getElementById("bfNetGrams").value) || 0,
         materialKey: document.getElementById("bfMatKey").value,
         kgPrice: Number(document.getElementById("bfKgPrice").value) || 0,
         shape: document.getElementById("bfShape").value,
@@ -510,6 +549,9 @@
       document.getElementById("bfPhone").value = r.phone || "";
       document.getElementById("bfPartName").value = r.partName || "";
       document.getElementById("bfPartCode").value = r.partCode || "";
+      document.getElementById("bfPricingMode").value = r.pricingMode || "unit";
+      document.getElementById("bfDirectMatUnit").value = r.directMatUnit ?? 180;
+      document.getElementById("bfNetGrams").value = r.netGrams ?? 450;
       document.getElementById("bfMatKey").value = r.materialKey || "ss304";
       document.getElementById("bfKgPrice").value = r.kgPrice || (ALLOYS[r.materialKey]?.priceKg || 245);
       document.getElementById("bfShape").value = r.shape || "cylindrical";
@@ -536,10 +578,17 @@
     }
 
     function toggleShapeFields() {
+      const mode = document.getElementById("bfPricingMode").value;
       const cyl = document.getElementById("bfShape").value === "cylindrical";
-      document.getElementById("bfWrapD").style.display = cyl ? "flex" : "none";
-      document.getElementById("bfWrapX").style.display = cyl ? "none" : "flex";
-      document.getElementById("bfWrapY").style.display = cyl ? "none" : "flex";
+      document.getElementById("bfWrapDirectMat").style.display = mode === "unit" ? "flex" : "none";
+      document.getElementById("bfWrapGrams").style.display = (mode === "unit" || mode === "grams") ? "flex" : "none";
+      document.getElementById("bfWrapKgPrice").style.display = (mode === "grams" || mode === "billet") ? "flex" : "none";
+      document.getElementById("bfWrapShape").style.display = mode === "billet" ? "flex" : "none";
+      document.getElementById("bfWrapD").style.display = (mode === "billet" && cyl) ? "flex" : "none";
+      document.getElementById("bfWrapX").style.display = (mode === "billet" && !cyl) ? "flex" : "none";
+      document.getElementById("bfWrapY").style.display = (mode === "billet" && !cyl) ? "flex" : "none";
+      document.getElementById("bfWrapZ").style.display = mode === "billet" ? "flex" : "none";
+      document.getElementById("bfWrapScrap").style.display = (mode === "grams" || mode === "billet") ? "flex" : "none";
     }
 
     function recalcAll() {
@@ -550,16 +599,22 @@
       const tel = (document.getElementById("orgTelInp")?.value || "+90 543 863 47 70").trim();
 
       document.getElementById("bfKpiStrip").innerHTML = `
-        <div class="bf-kpi"><div class="k">Brüt Kütük Ağırlığı</div><div class="v">${q.grossKg.toFixed(2)} kg/ad</div></div>
-        <div class="bf-kpi amber"><div class="k">Malzeme Payı (${q.qty} ad)</div><div class="v">${fmt(q.matTotal)} ₺</div></div>
-        <div class="bf-kpi violet"><div class="k">İşçilik + Tezgâh (${q.qty} ad)</div><div class="v">${fmt(q.laborTotal)} ₺</div></div>
-        <div class="bf-kpi green"><div class="k">Birim Fiyat / Toplam (+KDV)</div><div class="v">${fmt(q.sellUnit)} ₺ <small style="font-size:11px;color:#a7f3d0">(${fmt(q.grandTotal)} ₺)</small></div></div>
+        <div class="bf-kpi"><div class="k">Parça Başı Malzeme</div><div class="v">${fmt(q.matUnit)} ₺/ad</div></div>
+        <div class="bf-kpi amber"><div class="k">Parça Başı İşçilik</div><div class="v">${fmt(q.laborUnit)} ₺/ad</div></div>
+        <div class="bf-kpi violet"><div class="k">Teklif Birim Fiyatı (KDV Hariç)</div><div class="v">${fmt(q.sellUnit)} ₺/ad</div></div>
+        <div class="bf-kpi green"><div class="k">Parti Genel Toplam (${q.qty} ad +KDV)</div><div class="v">${fmt(q.grandTotal)} ₺</div></div>
       `;
 
+      const matDetailHtml = q.mode === "fason"
+        ? `<strong>Malzeme:</strong> Müşteri Malzemeli — Sadece Fason CNC İşçilik (0,00 ₺)`
+        : q.mode === "unit"
+          ? `<strong>Malzeme (Parça Başı):</strong> ${q.alloy.name} • ${q.billetLabel} • <strong>${fmt(q.matUnit)} ₺/ad</strong> (Parti ${q.qty} ad: <strong>${fmt(q.matTotal)} ₺</strong>)`
+          : `<strong>Malzeme (Ağırlık Bazlı):</strong> ${q.alloy.name} • ${q.billetLabel} • Brüt <strong>${q.grossKg.toFixed(3)} kg</strong> × ${fmt(q.priceKg)} ₺/kg = <strong>${fmt(q.matUnit)} ₺/ad</strong> (Parti: <strong>${fmt(q.matTotal)} ₺</strong>)`;
+
       document.getElementById("bfBreakdownBox").innerHTML = `
-        <div><strong>Malzeme Kırılımı:</strong> ${q.alloy.name} • ${q.billetLabel} • Net ${q.netKg.toFixed(2)} kg → Fire (%${f.scrapPct}) ile Brüt <strong>${q.grossKg.toFixed(2)} kg</strong> × ${fmt(q.priceKg)} ₺/kg = <strong>${fmt(q.matUnit)} ₺/ad</strong> (Parti: <strong>${fmt(q.matTotal)} ₺</strong>)</div>
+        <div>${matDetailHtml}</div>
         <div><strong>İşçilik &amp; Tezgâh Kırılımı:</strong> Torna ${fmt(q.turnUnit)} ₺ + Freze ${fmt(q.millUnit)} ₺ + Tel Erozyon ${fmt(q.edmUnit)} ₺ + Setup ${fmt(q.setupUnit)} ₺ + Takım/Uç ${fmt(q.toolUnit)} ₺ + Fason ${fmt(q.outsideUnit)} ₺ = <strong>${fmt(q.laborUnit)} ₺/ad</strong> (Parti: <strong>${fmt(q.laborTotal)} ₺</strong>)</div>
-        <div style="margin-top:4px;color:#6ee7b7;"><strong>Teklif Özeti:</strong> Birim Satış: <strong>${fmt(q.sellUnit)} ₺</strong> (KDV Hariç) • Parti Ara Toplam: <strong>${fmt(q.subTotal)} ₺</strong> • %20 KDV: <strong>${fmt(q.vat)} ₺</strong> • <strong>Genel Toplam: ${fmt(q.grandTotal)} ₺</strong></div>
+        <div style="margin-top:4px;color:#6ee7b7;"><strong>Teklif Özeti:</strong> Birim Satış: <strong>${fmt(q.sellUnit)} ₺/adet</strong> (KDV Hariç) • Parti Ara Toplam: <strong>${fmt(q.subTotal)} ₺</strong> • %20 KDV: <strong>${fmt(q.vat)} ₺</strong> • <strong>Genel Toplam: ${fmt(q.grandTotal)} ₺</strong></div>
       `;
 
       const lang = document.getElementById("bfMailLang").value;
@@ -599,7 +654,7 @@ Tarafımıza ilettiğiniz teknik resim doğrultusunda hazırlanan malzeme + CNC 
 
 • Parça Adı / Kodu: ${f.partName} (${f.partCode})
 • Sipariş Adedi: ${f.qty} Adet
-• Malzeme & Ham Kütük: ${q.alloy.name} | ${q.billetLabel} | Brüt ${q.grossKg.toFixed(2)} kg/adet
+• Malzeme & Değerleme: ${q.alloy.name} | ${q.billetLabel}
 • Tolerans & Kalite: ${f.tolerance || "ISO 2768-m"}
 
 MALZEME + İŞÇİLİK MALİYET KIRILIMI (KDV HARİÇ):
@@ -705,6 +760,7 @@ Tel: ${tel}`;
       refreshMlBadge();
       if (mlRes && mlRes.prediction && mlRes.trained > 0) {
         const p = mlRes.prediction;
+        if (p.directMatUnit != null && p.directMatUnit > 0) document.getElementById("bfDirectMatUnit").value = p.directMatUnit;
         if (p.turnMin != null) document.getElementById("bfTurnMin").value = p.turnMin;
         if (p.millMin != null) document.getElementById("bfMillMin").value = p.millMin;
         if (p.edmMin != null) document.getElementById("bfEdmMin").value = p.edmMin;
@@ -763,6 +819,8 @@ Tel: ${tel}`;
           if (data.dim_x_mm) document.getElementById("bfDimX").value = data.dim_x_mm;
           if (data.dim_y_mm) document.getElementById("bfDimY").value = data.dim_y_mm;
           if (data.dim_z_mm) document.getElementById("bfDimZ").value = data.dim_z_mm;
+          if (data.net_grams != null) document.getElementById("bfNetGrams").value = data.net_grams;
+          if (data.direct_mat_unit_tl != null) document.getElementById("bfDirectMatUnit").value = data.direct_mat_unit_tl;
           if (data.turn_min != null) document.getElementById("bfTurnMin").value = data.turn_min;
           if (data.mill_min != null) document.getElementById("bfMillMin").value = data.mill_min;
           if (data.edm_min != null) document.getElementById("bfEdmMin").value = data.edm_min;
@@ -804,6 +862,7 @@ Tel: ${tel}`;
     };
     fi.onchange = () => { if (fi.files && fi.files[0]) analyzeTechnicalDrawing(fi.files[0]); };
 
+    document.getElementById("bfPricingMode").onchange = () => { toggleShapeFields(); recalcAll(); };
     document.getElementById("bfMatKey").onchange = () => {
       const k = document.getElementById("bfMatKey").value;
       if (ALLOYS[k]) document.getElementById("bfKgPrice").value = ALLOYS[k].priceKg;
@@ -851,6 +910,8 @@ Tel: ${tel}`;
         volCm3: Number(volCm3.toFixed(2)),
         qty: obj.qty,
         kgPrice: obj.kgPrice,
+        directMatUnit: Number(q.matUnit.toFixed(2)),
+        netGrams: obj.netGrams,
         scrapPct: obj.scrapPct,
         turnMin: obj.turnMin, turnRate: obj.turnRate,
         millMin: obj.millMin, millRate: obj.millRate,
