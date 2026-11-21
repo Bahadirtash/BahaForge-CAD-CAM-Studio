@@ -41,8 +41,29 @@
   }
   .num { font-variant-numeric: tabular-nums; }
 
-  /* APP SHELL */
-  .shell { display: grid; grid-template-columns: 232px 1fr; height: 100vh; width: 100vw; }
+  /* APP SHELL (EXCEL-STYLE DRAGGABLE RESIZABLE COLUMNS!) */
+  .shell { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+  .rail { width: 236px; min-width: 168px; max-width: 420px; flex-shrink: 0; }
+  .stage { flex: 1; min-width: 0; }
+  .v-resizer {
+    width: 6px; flex-shrink: 0; cursor: col-resize; position: relative; z-index: 20;
+    background: transparent; transition: background 0.14s;
+  }
+  .v-resizer::after {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px;
+    background: rgba(15, 23, 42, 0.06); border-radius: 2px; transition: background 0.14s;
+  }
+  .v-resizer:hover::after, .v-resizer.dragging::after { background: var(--accent); }
+  .split-2 { display: flex; align-items: flex-start; gap: 0; width: 100%; }
+  .split-2 > .split-left { width: 56%; min-width: 320px; flex-shrink: 0; }
+  .split-2 > .split-right { flex: 1; min-width: 300px; }
+  @media (max-width: 1020px) { .split-2 { flex-direction: column; gap: 16px; } .split-2 > .split-left { width: 100% !important; } .split-2 > .v-resizer { display: none; } }
+  th { position: relative; user-select: none; }
+  .col-resizer {
+    position: absolute; top: 0; right: 0; width: 6px; height: 100%;
+    cursor: col-resize; z-index: 5;
+  }
+  .col-resizer:hover { background: rgba(29, 78, 216, 0.28); }
 
   /* FROSTED SIDEBAR */
   .rail {
@@ -154,8 +175,7 @@
   .kpi-card.emphasis .kpi-val { color: var(--accent); }
 
   /* GLASS CARDS & GRIDS */
-  .split-2 { display: grid; grid-template-columns: 1.12fr 0.88fr; gap: 20px; align-items: start; }
-  @media (max-width: 1120px) { .split-2 { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 1120px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
   .card {
     background: var(--glass);
     backdrop-filter: blur(22px) saturate(160%);
@@ -379,11 +399,13 @@
     </nav>
 
     <div class="rail-footer">
+      <div id="activeFileChip" style="display:none;padding:7px 9px;border-radius:8px;background:rgba(29,78,216,0.08);border:1px solid rgba(29,78,216,0.18);font-size:11px;color:var(--accent);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Tüm modüllerde aktif teknik resim"></div>
       <div class="status-row"><span><span class="dot on" id="dotEngine"></span>Yerel Çekirdek</span><span id="lblEngine">Hazır</span></div>
       <div class="status-row"><span><span class="dot" id="dotWa"></span>WhatsApp API</span><span id="lblWa">Kontrol</span></div>
       <div class="status-row"><span><span class="dot" id="dotSmtp"></span>Kurumsal E-Posta</span><span id="lblSmtp">Kontrol</span></div>
     </div>
   </aside>
+  <div class="v-resizer" id="railResizer" title="Menü genişliğini sürükleyip ayarlayın"></div>
 
   <!-- MAIN WORKSPACE -->
   <main class="stage">
@@ -445,9 +467,9 @@
         <div class="preview-note" id="previewNote"></div>
       </div>
 
-      <div class="split-2">
+      <div class="split-2" id="quoteSplit">
         <!-- LEFT: DRAWING + PARAMETERS -->
-        <div class="card">
+        <div class="card split-left" id="quoteLeftPane">
           <div class="card-head">
             <div class="card-title">Teknik Resim ve Maliyet Parametreleri</div>
             <div class="seg" id="modeSeg">
@@ -537,9 +559,10 @@
             <button type="button" class="btn sm" id="btnApplyMemory">Hafızadan Öner</button>
           </div>
         </div>
+        <div class="v-resizer" id="quoteSplitResizer" title="Panelleri Excel gibi sağa sola sürükleyin"></div>
 
         <!-- RIGHT: DIRECT IN-APP DELIVERY (WHATSAPP & EMAIL — NEVER LEAVES APP!) -->
-        <div class="card">
+        <div class="card split-right">
           <div class="card-head">
             <div class="card-title">Müşteriye Doğrudan İletim</div>
             <div class="seg" id="chanSeg">
@@ -637,8 +660,8 @@
         </div>
       </div>
 
-      <div class="split-2">
-        <div class="card">
+      <div class="split-2" id="invSplit">
+        <div class="card split-left" id="invLeftPane">
           <div class="card-head">
             <div class="card-title">Alıcı ve Fatura Bilgileri</div>
             <span class="card-meta num" id="invEttnLabel">ETTN: -</span>
@@ -676,8 +699,9 @@
             <div class="field"><label>Ödeme / İrsaliye Notu</label><input id="invNote" value="Malzeme + CNC talaşlı imalat bedelidir." /></div>
           </div>
         </div>
+        <div class="v-resizer" id="invSplitResizer" title="Panelleri sağa sola sürükleyin"></div>
 
-        <div class="card">
+        <div class="card split-right">
           <div class="card-head">
             <div class="card-title">Fatura Özeti ve GİB Doğrulama</div>
             <button type="button" class="btn sm" id="btnPrintInvoice">A4 PDF Çıkar</button>
@@ -708,8 +732,8 @@
         </div>
       </div>
 
-      <div class="split-2">
-        <div class="card">
+      <div class="split-2" id="setSplit">
+        <div class="card split-left" id="setLeftPane">
           <div class="card-head"><div class="card-title">Kurumsal Firma Bilgileri</div></div>
           <div class="form-2">
             <div class="field"><label>Firma Unvanı</label><input id="sCompany" value="BahaTech Makina & Yazılım" /></div>
@@ -720,8 +744,9 @@
             <div class="field"><label>IBAN</label><input id="sIban" value="TR00 0000 0000 0000 0000 0000 00" /></div>
           </div>
         </div>
+        <div class="v-resizer" id="setSplitResizer" title="Panelleri sağa sola sürükleyin"></div>
 
-        <div class="card">
+        <div class="card split-right">
           <div class="card-head"><div class="card-title">Doğrudan İletim Kanalları (Uygulama İçi)</div></div>
           <div class="section-label" style="margin-top:0;">WhatsApp Business API (Kapso)</div>
           <div class="form-2" style="margin-bottom:12px;">
@@ -904,7 +929,31 @@
     });
   }
 
-  // NAVIGATION
+  let activePartSession = null; // Shared across Teklif & Maliyet, CNC Takım Yolu & 3D, and GİB e-Fatura!
+  let lastCadSyncedSig = "";
+
+  function syncActiveFileToCadCam() {
+    if (!activePartSession || !activePartSession.file_b64) return;
+    const frame = $("ccCadFrame");
+    if (!frame || !frame.contentWindow) return;
+    const sig = `${activePartSession.filename}|${activePartSession.file_b64.length}`;
+    const matMap = { ss304: "ss304", ss316: "ss304", steel4140: "steel4140", st37: "steel4140", ck45: "steel4140", d2_2379: "steel4140", al7075: "al7075", al6061: "al7075", al5083: "al7075", ti64: "ti64" };
+    const stVal = Math.max(0, Number($("fStockAllow").value) || 0);
+    const payload = {
+      type: "BAHAWORKS_SYNC_ACTIVE_FILE",
+      filename: activePartSession.filename,
+      file_b64: activePartSession.file_b64,
+      preview_png_b64: activePartSession.preview_png_b64 || "",
+      material_preset: matMap[$("fMatKey").value] || "ss304",
+      machine_type: opEnabled.turn && !opEnabled.mill ? "turn_cyl" : "mill_box",
+      stock_x: stVal, stock_y: stVal, stock_z: Math.min(stVal, 3) || stVal,
+      already_loaded: sig === lastCadSyncedSig
+    };
+    frame.contentWindow.postMessage(payload, "*");
+    lastCadSyncedSig = sig;
+  }
+
+  // NAVIGATION (Auto-carries active drawing across all modules!)
   document.querySelectorAll(".nav-item[data-view]").forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
@@ -912,9 +961,27 @@
       btn.classList.add("active");
       const target = $("view-" + btn.dataset.view);
       target.classList.add("active");
-      if (btn.dataset.view === "cadcam") target.style.display = "flex";
-      else $("view-cadcam").style.display = "none";
+      if (btn.dataset.view === "cadcam") {
+        target.style.display = "flex";
+        syncActiveFileToCadCam();
+      } else {
+        $("view-cadcam").style.display = "none";
+      }
     };
+  });
+
+  // Listen if user uploads a file directly inside CNC Takım Yolu & 3D -> sync back to active session!
+  window.addEventListener("message", (ev) => {
+    if (ev.data && ev.data.type === "BAHAWORKS_CAD_UPLOADED_FILE" && ev.data.filename) {
+      activePartSession = {
+        filename: ev.data.filename,
+        file_b64: ev.data.file_b64 || "",
+        preview_png_b64: ev.data.preview_png_b64 || ""
+      };
+      lastCadSyncedSig = `${activePartSession.filename}|${activePartSession.file_b64.length}`;
+      const chip = $("activeFileChip");
+      if (chip) { chip.textContent = "Aktif Dosya: " + activePartSession.filename; chip.style.display = "block"; }
+    }
   });
 
   // PRICING MODE SEGMENT
@@ -1361,22 +1428,28 @@ ${s.phone}`;
   $("btnPrintInvoice").onclick = () => openInAppA4Preview("invoice");
   $("btnOpenInvPreview").onclick = () => openInAppA4Preview("invoice");
 
-  // UPLOAD & NATIVE RUST + VISION PDF ANALYSIS
+  // UPLOAD & NATIVE RUST + VISION PDF ANALYSIS (Persists active file across ALL BahaWorks tabs!)
   async function analyzeFile(file) {
     $("dzTitle").textContent = `${file.name} okunuyor...`;
     $("dzSub").textContent = "Antet, malzeme kodu, ham kütük ölçüleri ve ağırlık hesaplanıyor";
     const reader = new FileReader();
     reader.onload = async () => {
+      const fileDataUrl = reader.result;
+      activePartSession = { filename: file.name, file_b64: fileDataUrl, preview_png_b64: "" };
+      lastCadSyncedSig = "";
+      const chip = $("activeFileChip");
+      if (chip) { chip.textContent = "Aktif Dosya: " + file.name; chip.style.display = "block"; }
       try {
         const r = await fetch("/api/rfq-analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name, file_b64: reader.result })
+          body: JSON.stringify({ filename: file.name, file_b64: fileDataUrl })
         });
         const d = await r.json();
         if (!d.ok) throw new Error(d.error || "Okuma hatası");
 
         if (d.preview_png_b64) {
+          activePartSession.preview_png_b64 = d.preview_png_b64;
           $("previewImg").src = d.preview_png_b64;
           $("zoomImg").src = d.preview_png_b64;
           $("previewFileLabel").textContent = `${file.name} · ${d.part_name || "Teknik Çizim"}`;
@@ -1850,9 +1923,64 @@ ${s.phone}`;
     } catch (_) {}
   }
 
+  // EXCEL-STYLE DRAGGABLE PANEL SPLITTERS & TABLE COLUMN RESIZERS!
+  function wireSplitter(handleId, leftEl, minPx, maxPx, storeKey) {
+    const h = $(handleId);
+    if (!h || !leftEl) return;
+    const saved = localStorage.getItem(storeKey);
+    if (saved) leftEl.style.width = saved;
+    h.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      h.classList.add("dragging");
+      document.body.style.cursor = "col-resize";
+      document.querySelectorAll("iframe").forEach(f => f.style.pointerEvents = "none");
+      const startX = e.clientX;
+      const startW = leftEl.getBoundingClientRect().width;
+      const onMove = (ev) => {
+        const next = Math.max(minPx, Math.min(maxPx, startW + (ev.clientX - startX)));
+        leftEl.style.width = next + "px";
+      };
+      const onUp = () => {
+        h.classList.remove("dragging");
+        document.body.style.cursor = "";
+        document.querySelectorAll("iframe").forEach(f => f.style.pointerEvents = "");
+        localStorage.setItem(storeKey, leftEl.style.width);
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    });
+  }
+
+  function enableExcelTableColumnResize() {
+    document.querySelectorAll("table").forEach(tbl => {
+      tbl.querySelectorAll("thead th").forEach(th => {
+        if (th.querySelector(".col-resizer")) return;
+        const grip = document.createElement("div");
+        grip.className = "col-resizer";
+        grip.title = "Sütunu genişletmek için sürükleyin";
+        th.appendChild(grip);
+        grip.addEventListener("mousedown", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          const startX = e.clientX, startW = th.getBoundingClientRect().width;
+          const onMove = (ev) => { th.style.width = Math.max(55, startW + (ev.clientX - startX)) + "px"; };
+          const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+          window.addEventListener("mousemove", onMove);
+          window.addEventListener("mouseup", onUp);
+        });
+      });
+    });
+  }
+
   // INIT
   populateAlloySelectAndTable();
   syncOpToggles();
+  wireSplitter("railResizer", document.querySelector(".rail"), 168, 420, "bw_rail_w");
+  wireSplitter("quoteSplitResizer", $("quoteLeftPane"), 320, 980, "bw_qsplit_w");
+  wireSplitter("invSplitResizer", $("invLeftPane"), 320, 920, "bw_isplit_w");
+  wireSplitter("setSplitResizer", $("setLeftPane"), 300, 900, "bw_ssplit_w");
+  enableExcelTableColumnResize();
   $("invDate").value = new Date().toISOString().slice(0, 10);
   loadSettingsUI();
   setPricingMode("billet");

@@ -20,18 +20,26 @@
   html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink); }
   .num { font-variant-numeric: tabular-nums; }
 
-  /* 3-COLUMN SWISS CAD/CAM STUDIO LAYOUT */
-  .studio { display: grid; grid-template-columns: 300px 1fr 310px; height: 100vh; width: 100vw; }
+  /* 3-COLUMN EXCEL-RESIZABLE SWISS CAD/CAM STUDIO LAYOUT */
+  .studio { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
   .rail {
+    width: 300px; min-width: 220px; max-width: 520px; flex-shrink: 0;
     background: var(--panel); backdrop-filter: blur(20px);
     border-right: 1px solid var(--border);
     padding: 14px; display: flex; flex-direction: column; gap: 11px; overflow-y: auto;
   }
   .rail-right {
+    width: 315px; min-width: 230px; max-width: 520px; flex-shrink: 0;
     background: var(--panel); backdrop-filter: blur(20px);
     border-left: 1px solid var(--border);
     padding: 14px; display: flex; flex-direction: column; gap: 11px; overflow-y: auto;
   }
+  .viewport { flex: 1; min-width: 260px; }
+  .s-resizer {
+    width: 6px; flex-shrink: 0; cursor: col-resize; position: relative; z-index: 30;
+    background: rgba(15, 23, 42, 0.04); transition: background 0.14s;
+  }
+  .s-resizer:hover, .s-resizer.dragging { background: rgba(29, 78, 216, 0.45); }
 
   .sec-hd { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-top: 2px; }
   .pill { font-size: 10.5px; font-weight: 650; padding: 2px 8px; border-radius: 999px; background: rgba(29,78,216,0.09); color: var(--accent); }
@@ -159,10 +167,20 @@
     </div>
 
     <div class="specs num" id="specsGrid" style="display:none;">
-      <div class="spec"><div class="l">Parça Ölçü (mm)</div><div class="v" id="spBbox">-</div></div>
       <div class="spec"><div class="l">Net Hacim</div><div class="v" id="spVol">-</div></div>
       <div class="spec"><div class="l">B-Rep Yüzey / Kenar</div><div class="v" id="spTopo">-</div></div>
       <div class="spec"><div class="l">Tahmini Kütle</div><div class="v" id="spMass">-</div></div>
+      <div class="spec"><div class="l">Ölçü Durumu</div><div class="v" id="spBbox">-</div></div>
+    </div>
+
+    <!-- EDITABLE 3D PART DIMENSIONS (X / Y / Z MM LIVE SCALE!) -->
+    <div id="editDimsBox" style="display:none;">
+      <div class="sec-hd"><span>Parça Ölçüleri (Düzenlenebilir mm)</span></div>
+      <div class="grid-3" style="margin-top:6px;">
+        <div class="field"><label>Parça X</label><input id="edX" type="number" step="0.5" min="1" class="num" /></div>
+        <div class="field"><label>Parça Y</label><input id="edY" type="number" step="0.5" min="1" class="num" /></div>
+        <div class="field"><label>Parça Z</label><input id="edZ" type="number" step="0.5" min="1" class="num" /></div>
+      </div>
     </div>
 
     <!-- PROMPT-BASED 3D STEP MODIFICATION -->
@@ -186,6 +204,7 @@
       <button type="button" class="btn" id="btnDownloadStl" disabled>.STL İndir</button>
     </div>
   </aside>
+  <div class="s-resizer" id="cadLeftResizer" title="Sol paneli sağa sola kaydırın"></div>
 
   <!-- CENTER: REAL 3D OPENCASCADE + STOCK MODEL CAGE + LIVE TOOLPATH VIEWPORT -->
   <section class="viewport" id="viewport">
@@ -210,6 +229,7 @@
       <div class="vp-tag">Sol Tık: Döndür · Sağ Tık: Kaydır · Tekerlek: Yakınlaştır</div>
     </div>
   </section>
+  <div class="s-resizer" id="cadRightResizer" title="Sağ CAM panelini sağa sola kaydırın"></div>
 
   <!-- RIGHT RAIL: STOCK MODEL DEFINITION (X/Y/Z) + CAM TOOLPATH PARAMETERS -->
   <aside class="rail-right">
@@ -252,35 +272,64 @@
     </div>
 
     <div class="sec-hd">
-      <span>4. İşleme Yöntemi &amp; Takım</span>
+      <span>4. BahaCAM 2026 · Strateji &amp; Takım</span>
       <span class="pill ok" id="cycleTimePill">0,0 dk</span>
     </div>
 
     <div class="field">
       <label>İşleme Yöntemi (Strateji)</label>
       <select id="camStrategy">
-        <option value="volumill">VoluMill Yüksek Hızlı Kaba (Trokoidal)</option>
-        <option value="zrough">Z-Seviye Kaba Boşaltma (Contour Rough)</option>
-        <option value="facemill">Yüzey Tarama (Face Mill)</option>
-        <option value="finish">Finiş Duvar / Profil (Contour Finish)</option>
-        <option value="drill">Delik Delme &amp; H7 Rayba (Drill Cycle)</option>
+        <option value="bahaflow">BahaFlow Dinamik Trokoidal Kaba (Sabit Yük)</option>
+        <option value="rest">Kalan Talaş İşleme (Rest Machining · Kısa Rijit Takım)</option>
+        <option value="tilt5x">5-Eksen Akıllı Eğim &amp; 3+2 İndeks (Çarpışma Korumalı)</option>
+        <option value="zrough">Z-Seviye Kaba Boşaltma (Kontur)</option>
+        <option value="facemill">Yüzey Tarama (Alın Freze)</option>
+        <option value="finish">3B Yüzey &amp; Duvar Finiş (Yüksek Kalite)</option>
+        <option value="drill">Otomatik Delik, Kılavuz &amp; H7 Rayba</option>
+        <option value="wedm">Tel Erozyon &amp; Elektrot Planlama</option>
       </select>
     </div>
 
     <div class="grid-2">
       <div class="field">
-        <label>Takım Çapı Ø (mm)</label>
-        <select id="camToolDia">
-          <option value="6">Ø6 mm Karbür Parmak Freze</option>
-          <option value="8">Ø8 mm Karbür Parmak Freze</option>
-          <option value="10" selected>Ø10 mm Karbür Parmak Freze</option>
-          <option value="12">Ø12 mm Karbür Parmak Freze</option>
-          <option value="16">Ø16 mm Karbür Parmak Freze</option>
-          <option value="20">Ø20 mm Kaba / Tarama</option>
-          <option value="50">Ø50 mm Yüzey Tarama Kafası</option>
+        <label>Kesici Profili</label>
+        <select id="camToolProfile">
+          <option value="flat">Karbür Parmak Freze (Flat)</option>
+          <option value="ball">Küre Freze (Ball Nose · 3B Finiş)</option>
+          <option value="barrel">Fıçı / Daire-Segment Freze (Barrel)</option>
+          <option value="lens">Lens Yüzey Finiş Frezesi</option>
+          <option value="lollipop">Lolipop / Ters Radyüs (5-Eksen)</option>
+          <option value="face">Yüzey Tarama Kafası</option>
+          <option value="drill">Karbür Matkap / H7 Rayba</option>
         </select>
       </div>
-      <div class="field"><label>Ağız Sayısı (Z)</label><input id="camFlutes" type="number" min="1" max="8" value="4" class="num" /></div>
+      <div class="field">
+        <label>Takım Çapı Ø (mm)</label>
+        <select id="camToolDia">
+          <option value="4">Ø4 mm (Kalan Talaş / Köşe)</option>
+          <option value="6">Ø6 mm</option>
+          <option value="8">Ø8 mm</option>
+          <option value="10" selected>Ø10 mm</option>
+          <option value="12">Ø12 mm</option>
+          <option value="16">Ø16 mm</option>
+          <option value="20">Ø20 mm</option>
+          <option value="50">Ø50 mm (Tarama)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="field"><label>Ağız (Z)</label><input id="camFlutes" type="number" min="1" max="8" value="4" class="num" /></div>
+      <div class="field"><label>Eğim Açısı (°)</label><input id="camTiltDeg" type="number" min="0" max="45" value="0" class="num" title="5-Eksen otomatik eğim açısı" /></div>
+      <div class="field">
+        <label>Kontrol Ünitesi</label>
+        <select id="camPost">
+          <option value="fanuc">Fanuc / Mitsubishi</option>
+          <option value="siemens">Siemens 840D</option>
+          <option value="haas">Haas NGC</option>
+          <option value="heidenhain">Heidenhain</option>
+        </select>
+      </div>
     </div>
 
     <div class="grid-2">
@@ -291,6 +340,13 @@
     </div>
 
     <button type="button" class="btn primary" id="btnGenToolpath" disabled>Takım Yolunu Oluştur &amp; 3D Göster</button>
+    <div class="grid-3">
+      <button type="button" class="btn sm" id="btnAddOp" disabled>+ Operasyona Ekle</button>
+      <button type="button" class="btn sm" id="btnUndoOp" disabled>Geri Al</button>
+      <button type="button" class="btn sm" id="btnRedoOp" disabled>Yinele</button>
+    </div>
+    <div id="opsListBox" style="display:none;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:11px;line-height:1.5;color:var(--ink2);"></div>
+
     <div class="grid-2">
       <button type="button" class="btn amber" id="btnSimToggle" disabled>Simülasyon Oynat</button>
       <button type="button" class="btn ok" id="btnExportNc" disabled>ISO G-Code (.nc)</button>
@@ -431,6 +487,12 @@
     scene.add(partGroup);
 
     partBox = new THREE.Box3().setFromObject(mesh);
+    const szInit = new THREE.Vector3(); partBox.getSize(szInit);
+    window.__basePartSize = { x: szInit.x || 1, y: szInit.z || 1, z: szInit.y || 1 };
+    $("edX").value = szInit.x.toFixed(1);
+    $("edY").value = szInit.z.toFixed(1);
+    $("edZ").value = szInit.y.toFixed(1);
+    $("editDimsBox").style.display = "block";
     $("vpEmpty").style.display = "none";
     rebuildStockModel();
     fitCamera();
@@ -438,6 +500,46 @@
     $("btnGenToolpath").disabled = false;
     $("btnRefine").disabled = false;
   }
+
+  function applyEditablePartDimensions() {
+    if (!partGroup || !window.__basePartSize) return;
+    const tx = Math.max(1, Number($("edX").value) || window.__basePartSize.x);
+    const ty = Math.max(1, Number($("edY").value) || window.__basePartSize.y);
+    const tz = Math.max(1, Number($("edZ").value) || window.__basePartSize.z);
+    partGroup.scale.set(tx / window.__basePartSize.x, tz / window.__basePartSize.z, ty / window.__basePartSize.y);
+    partGroup.updateMatrixWorld(true);
+    partBox = new THREE.Box3().setFromObject(partGroup);
+    $("spBbox").textContent = `${tx.toFixed(1)}×${ty.toFixed(1)}×${tz.toFixed(1)}`;
+    rebuildStockModel();
+  }
+  ["edX", "edY", "edZ"].forEach(id => $(id).addEventListener("input", applyEditablePartDimensions));
+
+  // EXCEL-STYLE DRAGGABLE LEFT & RIGHT STUDIO SPLITTERS
+  function wireCadSplitter(resId, panelEl, invert) {
+    const h = $(resId);
+    if (!h || !panelEl) return;
+    h.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      h.classList.add("dragging");
+      document.body.style.cursor = "col-resize";
+      const startX = e.clientX, startW = panelEl.getBoundingClientRect().width;
+      const onMove = (ev) => {
+        const delta = invert ? (startX - ev.clientX) : (ev.clientX - startX);
+        panelEl.style.width = Math.max(220, Math.min(540, startW + delta)) + "px";
+        resize();
+      };
+      const onUp = () => {
+        h.classList.remove("dragging");
+        document.body.style.cursor = "";
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    });
+  }
+  wireCadSplitter("cadLeftResizer", document.querySelector(".rail"), false);
+  wireCadSplitter("cadRightResizer", document.querySelector(".rail-right"), true);
 
   window.fitCamera = () => {
     if (!partBox) return;
@@ -488,7 +590,30 @@
   $("camToolDia").onchange = updateCuttingParams;
   $("camFlutes").onchange = updateCuttingParams;
 
-  // GENERATE REAL 3D TOOLPATHS AROUND STOCK MODEL & REAL ISO G-CODE!
+  let opQueue = [], opRedoStack = [];
+  function renderOpQueue() {
+    const box = $("opsListBox");
+    $("btnUndoOp").disabled = opQueue.length === 0;
+    $("btnRedoOp").disabled = opRedoStack.length === 0;
+    if (!opQueue.length) { box.style.display = "none"; return; }
+    box.style.display = "block";
+    const totMin = opQueue.reduce((a, o) => a + o.mins, 0);
+    box.innerHTML = `<strong>Operasyon Ağacı (${opQueue.length} İşlem · Toplam ${totMin.toFixed(1)} dk):</strong><br>` +
+      opQueue.map((o, i) => `T0${i + 1} · ${o.label} (Ø${o.dia} · S${o.rpm} · F${o.feed} · ${o.mins.toFixed(1)} dk)`).join("<br>");
+    $("cycleTimePill").textContent = `${totMin.toFixed(1)} dk`;
+  }
+
+  $("camStrategy").onchange = () => {
+    const s = $("camStrategy").value;
+    if (s === "tilt5x" && Number($("camTiltDeg").value) === 0) $("camTiltDeg").value = 12;
+    if (s === "rest") { $("camToolDia").value = "6"; $("camAe").value = "0.8"; }
+    if (s === "facemill") { $("camToolDia").value = "50"; $("camToolProfile").value = "face"; }
+    if (s === "finish") { $("camToolProfile").value = "barrel"; $("camAe").value = "0.6"; }
+    if (s === "drill") { $("camToolProfile").value = "drill"; }
+    updateCuttingParams();
+  };
+
+  // GENERATE REAL 3D TOOLPATHS AROUND STOCK MODEL & REAL MULTI-POST ISO G-CODE!
   function generateToolpathAndGcode() {
     if (!partBox) return;
     if (toolpathGroup) { scene.remove(toolpathGroup); toolpathGroup = null; }
@@ -500,13 +625,15 @@
     const D = Math.max(2, Number($("camToolDia").value) || 10);
     const R = D * 0.5;
     const ap = Math.max(0.5, Number($("camAp").value) || 4);
-    const ae = Math.max(0.5, Number($("camAe").value) || 2);
+    const ae = Math.max(0.3, Number($("camAe").value) || 2);
     const rpm = Math.max(500, Number($("camRpm").value) || 3000);
     const feed = Math.max(80, Number($("camFeed").value) || 600);
+    const tiltDeg = Math.max(0, Math.min(45, Number($("camTiltDeg").value) || 0));
     const strat = $("camStrategy").value;
+    const post = $("camPost").value;
+    const prof = $("camToolProfile").value;
 
     const pSize = new THREE.Vector3(); partBox.getSize(pSize);
-    const pCtr = new THREE.Vector3(); partBox.getCenter(pCtr);
     const halfX = (pSize.x + sx) * 0.5 + R * 0.6;
     const halfZ = (pSize.z + sy) * 0.5 + R * 0.6;
     const topY = partBox.max.y + sz * 0.5;
@@ -516,19 +643,27 @@
     const cutPts = [];
     const rapidPts = [];
     simPoints = [];
+    const postHdr = post === "siemens" ? "CYCLE832(0.02, 112001) ; SIEMENS 840D HSC"
+      : post === "haas" ? "G187 P3 E0.02 ; HAAS NGC SMOOTHING"
+      : post === "heidenhain" ? "M120 LA15 ; HEIDENHAIN LOOK-AHEAD"
+      : "G05.1 Q1 ; FANUC AICC HIGH-SPEED";
+
     const gcode = [
       `%`,
-      `O7500 (${(currentBundle?.part_name || "BAHAWORKS_PART").toUpperCase()})`,
-      `(STRATEJI: ${strat.toUpperCase()} | TAKIM: D${D} Z${$("camFlutes").value} | STOK: +${sx}/+${sy}/+${sz} MM)`,
+      `O7800 (${(currentBundle?.part_name || "BAHAWORKS_PART").toUpperCase()})`,
+      `(BAHACAM 2026 | STRATEJI: ${strat.toUpperCase()} | PROFIL: ${prof.toUpperCase()} | TAKIM: D${D} Z${$("camFlutes").value} | EGIM: ${tiltDeg} DEG)`,
+      `(STOK MODEL: +${sx}/+${sy}/+${sz} MM | CARPISMA KORUMA: AKTIF)`,
       `G21 G90 G17 G40 G49 G80`,
-      `T01 M06`,
+      postHdr,
+      `T0${opQueue.length + 1} M06`,
       `S${rpm} M03`,
+      tiltDeg > 0 ? `G68.2 X0 Y0 Z0 I0 J${tiltDeg.toFixed(1)} K0 ; 5X OTOMATIK EGIM` : `(3-EKSEN DIK ISLEME)`,
       `M08`,
       `G00 X${(-halfX).toFixed(2)} Y${(-halfZ).toFixed(2)}`,
       `G00 Z${safeY.toFixed(2)}`,
     ];
 
-    const levels = strat === "facemill" ? 1 : Math.min(18, Math.max(1, Math.ceil((topY - botY) / ap)));
+    const levels = strat === "facemill" ? 1 : Math.min(20, Math.max(1, Math.ceil((topY - botY) / ap)));
     let totalDistMm = 0;
     let prevPt = new THREE.Vector3(-halfX, safeY, -halfZ);
 
@@ -542,15 +677,14 @@
       gcode.push(`G01 Z${gZ} F${Math.round(feed * 0.35)}`);
 
       const ring = [];
-      if (strat === "volumill" || strat === "facemill") {
-        // Trochoidal / zigzag high-speed stepover lanes across the stock box
+      if (strat === "bahaflow" || strat === "facemill") {
         const step = Math.max(ae * 2.2, 4);
         let dir = 1;
         for (let z = -halfZ; z <= halfZ + 0.1; z += step) {
           const xA = dir > 0 ? -halfX : halfX;
           const xB = dir > 0 ? halfX : -halfX;
-          if (strat === "volumill") {
-            const segs = 12;
+          if (strat === "bahaflow") {
+            const segs = 14;
             for (let k = 0; k <= segs; k++) {
               const t = k / segs;
               const px = xA + (xB - xA) * t;
@@ -562,8 +696,16 @@
           }
           dir *= -1;
         }
+      } else if (strat === "rest") {
+        // Kalan Talaş (Rest Machining): concentrated corner cleanup arcs!
+        const corners = [[-halfX*0.82,-halfZ*0.82],[halfX*0.82,-halfZ*0.82],[halfX*0.82,halfZ*0.82],[-halfX*0.82,halfZ*0.82]];
+        corners.forEach(([cx, cz]) => {
+          for (let a = 0; a <= 8; a++) {
+            const ang = (a / 8) * Math.PI * 2;
+            ring.push(new THREE.Vector3(cx + Math.cos(ang) * R * 1.4, y, cz + Math.sin(ang) * R * 1.4));
+          }
+        });
       } else if (strat === "drill") {
-        // Peck drilling points at quadrant/center offsets
         const pts = [[0,0], [-pSize.x*0.3, 0], [pSize.x*0.3, 0], [0, -pSize.z*0.3], [0, pSize.z*0.3]];
         pts.forEach(([px, pz]) => {
           rapidPts.push(new THREE.Vector3(px, safeY, pz), new THREE.Vector3(px, botY, pz));
@@ -573,8 +715,8 @@
         gcode.push(`G80`);
         break;
       } else {
-        // Contour rough / finish perimeter offset loops
-        const loops = strat === "finish" ? 1 : 2;
+        // Z-Rough / 5X Auto-Tilt / 3B Finish / Wire-EDM perimeter passes
+        const loops = (strat === "finish" || strat === "wedm") ? 1 : 2;
         for (let lp = 0; lp < loops; lp++) {
           const ox = halfX - lp * ae;
           const oz = halfZ - lp * ae;
@@ -596,17 +738,19 @@
           totalDistMm += ring[i - 1].distanceTo(pt);
         }
         simPoints.push(pt);
-        if (gcode.length < 180) gcode.push(`G01 X${pt.x.toFixed(2)} Y${pt.z.toFixed(2)} F${feed}`);
+        if (gcode.length < 210) gcode.push(`G01 X${pt.x.toFixed(2)} Y${pt.z.toFixed(2)} F${feed}`);
         prevPt = pt;
       }
     }
+    if (tiltDeg > 0) gcode.push(`G69 ; 5X EGIM IPTAL`);
     gcode.push(`G00 Z${(safeY + 15).toFixed(2)}`, `M05`, `M09`, `G28 G91 Z0`, `M30`, `%`);
     lastGcode = gcode.join("\n");
 
     toolpathGroup = new THREE.Group();
     if (cutPts.length) {
+      const col = strat === "rest" ? 0x34d399 : strat === "tilt5x" ? 0xc084fc : 0x38bdf8;
       const g1 = new THREE.BufferGeometry().setFromPoints(cutPts);
-      toolpathGroup.add(new THREE.LineSegments(g1, new THREE.LineBasicMaterial({ color: 0x38bdf8 })));
+      toolpathGroup.add(new THREE.LineSegments(g1, new THREE.LineBasicMaterial({ color: col })));
     }
     if (rapidPts.length) {
       const g2 = new THREE.BufferGeometry().setFromPoints(rapidPts);
@@ -614,68 +758,122 @@
     }
     scene.add(toolpathGroup);
 
-    // 3D Carbide Endmill Cutter for live simulation
-    const cGeom = new THREE.CylinderGeometry(R, R, Math.max(D * 3, 28), 24);
-    cGeom.translate(0, Math.max(D * 1.5, 14), 0);
-    cutterMesh = new THREE.Mesh(cGeom, new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8, roughness: 0.2 }));
+    // 3D Cutter + Tool Holder (with 5-Axis Tilt angle visualization!)
+    const holderGroup = new THREE.Group();
+    const fluteH = Math.max(D * 2.8, 24);
+    const cGeom = new THREE.CylinderGeometry(R, prof === "ball" ? R * 0.45 : R, fluteH, 24);
+    cGeom.translate(0, fluteH * 0.5, 0);
+    const hGeom = new THREE.CylinderGeometry(R * 1.9, R * 1.5, 22, 24);
+    hGeom.translate(0, fluteH + 11, 0);
+    holderGroup.add(
+      new THREE.Mesh(cGeom, new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8, roughness: 0.2 })),
+      new THREE.Mesh(hGeom, new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6, roughness: 0.35 }))
+    );
+    holderGroup.rotation.z = THREE.MathUtils.degToRad(tiltDeg);
+    cutterMesh = holderGroup;
     if (simPoints[0]) cutterMesh.position.copy(simPoints[0]);
     scene.add(cutterMesh);
 
     const mins = Math.max(0.5, totalDistMm / feed + levels * 0.15);
+    window.__lastGeneratedOp = { label: $("camStrategy").options[$("camStrategy").selectedIndex].text.split("(")[0].trim(), dia: D, rpm, feed, mins, gcode: lastGcode };
     $("cycleTimePill").textContent = `${mins.toFixed(1)} dk`;
     $("gcodeBox").textContent = lastGcode;
     $("gcodeBox").classList.add("show");
+    $("btnAddOp").disabled = false;
     $("btnSimToggle").disabled = false;
     $("btnExportNc").disabled = false;
     simRunning = true; simIdx = 0;
     $("btnSimToggle").textContent = "Simülasyonu Durdur";
   }
 
+  $("btnAddOp").onclick = () => {
+    if (!window.__lastGeneratedOp) return;
+    opQueue.push(window.__lastGeneratedOp);
+    opRedoStack = [];
+    renderOpQueue();
+    lastGcode = opQueue.map((o, i) => `(=== OPERASYON ${i + 1}: ${o.label} ===)\n${o.gcode}`).join("\n\n");
+    $("gcodeBox").textContent = lastGcode;
+  };
+  $("btnUndoOp").onclick = () => { if (opQueue.length) { opRedoStack.push(opQueue.pop()); renderOpQueue(); } };
+  $("btnRedoOp").onclick = () => { if (opRedoStack.length) { opQueue.push(opRedoStack.pop()); renderOpQueue(); } };
+
   // UPLOAD & CALL OPENCASCADE OCCT 8.0 WORKER (STEP IMPORT OR PDF->STEP)
-  async function processUpload(file) {
+  async function processFileData(filename, fileDataUrl, isFromParentSync) {
     const sb = $("statusBox");
     sb.className = "status-box";
-    sb.innerHTML = `<strong>${file.name}</strong> işleniyor... OpenCascade OCCT 8.0 B-Rep çekirdeği modeli oluşturuyor...`;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const r = await fetch("/api/pdf2step", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name, file_b64: reader.result })
-        });
-        const d = await r.json();
-        if (!d.ok) throw new Error(d.error || "B-Rep dönüşüm hatası");
-        currentBundle = d;
+    sb.innerHTML = `<strong>${filename}</strong> ${isFromParentSync ? "Teklif modülünden otomatik aktarıldı — " : ""}OpenCascade OCCT 8.0 B-Rep çekirdeği modeli hazırlıyor...`;
+    try {
+      const r = await fetch("/api/pdf2step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename, file_b64: fileDataUrl })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || "B-Rep dönüşüm hatası");
+      currentBundle = d;
 
-        if (d.preview_png_b64) {
-          $("previewImg").src = d.preview_png_b64;
-          $("zoomImg").src = d.preview_png_b64;
-          $("previewName").textContent = file.name;
-          $("previewBox").classList.add("show");
-        }
-        if (d.stl_content) loadStlInto3D(d.stl_content);
-
-        const st = d.stats || {};
-        const bb = st.bbox_mm || [0, 0, 0];
-        $("spBbox").textContent = `${bb[0]}×${bb[1]}×${bb[2]}`;
-        $("spVol").textContent = `${st.volume_cm3 || 0} cm³`;
-        $("spTopo").textContent = `${st.faces || 0} / ${st.edges || 0}`;
-        $("spMass").textContent = `${st.mass_kg || 0} kg`;
-        $("specsGrid").style.display = "grid";
-
-        sb.className = "status-box ok";
-        sb.innerHTML = `<strong>${d.part_name}</strong> (${d.engine})<br>${d.engineering_notes || ""}`;
-        $("hudLeft").textContent = `${d.part_name} · ${bb[0]}×${bb[1]}×${bb[2]} mm`;
-        $("btnDownloadStep").disabled = !d.step_content;
-        $("btnDownloadStl").disabled = !d.stl_content;
-      } catch (err) {
-        sb.className = "status-box err";
-        sb.textContent = "Hata: " + err.message;
+      if (d.preview_png_b64) {
+        $("previewImg").src = d.preview_png_b64;
+        $("zoomImg").src = d.preview_png_b64;
+        $("previewName").textContent = filename;
+        $("previewBox").classList.add("show");
       }
-    };
+      if (d.stl_content) loadStlInto3D(d.stl_content);
+
+      const st = d.stats || {};
+      const bb = st.bbox_mm || [0, 0, 0];
+      $("spBbox").textContent = `${bb[0]}×${bb[1]}×${bb[2]}`;
+      $("spVol").textContent = `${st.volume_cm3 || 0} cm³`;
+      $("spTopo").textContent = `${st.faces || 0} / ${st.edges || 0}`;
+      $("spMass").textContent = `${st.mass_kg || 0} kg`;
+      $("specsGrid").style.display = "grid";
+
+      sb.className = "status-box ok";
+      sb.innerHTML = `<strong>${d.part_name}</strong> (${d.engine})<br>${d.engineering_notes || ""}`;
+      $("hudLeft").textContent = `${d.part_name} · ${bb[0]}×${bb[1]}×${bb[2]} mm`;
+      $("btnDownloadStep").disabled = !d.step_content;
+      $("btnDownloadStl").disabled = !d.stl_content;
+
+      if (!isFromParentSync && window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: "BAHAWORKS_CAD_UPLOADED_FILE",
+          filename,
+          file_b64: fileDataUrl,
+          preview_png_b64: d.preview_png_b64 || ""
+        }, "*");
+      }
+    } catch (err) {
+      sb.className = "status-box err";
+      sb.textContent = "Hata: " + err.message;
+    }
+  }
+
+  async function processUpload(file) {
+    const reader = new FileReader();
+    reader.onload = () => processFileData(file.name, reader.result, false);
     reader.readAsDataURL(file);
   }
+
+  // AUTO-RECEIVE ACTIVE DRAWING FROM TEKLİF & MALİYET TAB (ZERO RE-UPLOAD NEEDED!)
+  window.addEventListener("message", (ev) => {
+    const msg = ev.data;
+    if (!msg || msg.type !== "BAHAWORKS_SYNC_ACTIVE_FILE") return;
+    if (msg.material_preset) { $("camMatPreset").value = msg.material_preset; updateCuttingParams(); }
+    if (msg.machine_type) $("camMachineType").value = msg.machine_type;
+    if (msg.stock_x != null) $("stX").value = msg.stock_x;
+    if (msg.stock_y != null) $("stY").value = msg.stock_y;
+    if (msg.stock_z != null) $("stZ").value = msg.stock_z;
+    if (partBox) rebuildStockModel();
+    if (!msg.already_loaded && msg.file_b64 && msg.filename) {
+      if (msg.preview_png_b64) {
+        $("previewImg").src = msg.preview_png_b64;
+        $("zoomImg").src = msg.preview_png_b64;
+        $("previewName").textContent = msg.filename;
+        $("previewBox").classList.add("show");
+      }
+      processFileData(msg.filename, msg.file_b64, true);
+    }
+  });
 
   // PROMPT-BASED 3D STEP MODIFICATION ("15 çapındaki deliği 25 yap", "X:40 Y:20 Ø10 delik")
   async function runPromptRefine() {
