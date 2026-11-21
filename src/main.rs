@@ -11,6 +11,7 @@ use std::thread;
 use std::time::Duration;
 
 // Embedded single-binary web suite assets (zero external runtime files required!)
+const ASSET_INDUSTRY_HTML: &str = include_str!("../web/industry.html");
 const ASSET_FORGE_HTML: &str = include_str!("../web/forge.html");
 const ASSET_CADCAM_OS_HTML: &str = include_str!("../web/BahaTech_CADCAM_OS.html");
 const ASSET_RFQ_JS: &str = include_str!("../web/bahaforge-rfq-quote-ai.js");
@@ -146,7 +147,8 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
 
     if method == "GET" {
         return match raw_path {
-            "/" | "/index.html" | "/forge.html" => write_raw(&mut stream, 200, "text/html; charset=utf-8", ASSET_FORGE_HTML.as_bytes()),
+            "/" | "/index.html" | "/industry.html" | "/forge.html" => write_raw(&mut stream, 200, "text/html; charset=utf-8", ASSET_INDUSTRY_HTML.as_bytes()),
+            "/forge-legacy.html" => write_raw(&mut stream, 200, "text/html; charset=utf-8", ASSET_FORGE_HTML.as_bytes()),
             "/BahaTech_CADCAM_OS.html" => write_raw(&mut stream, 200, "text/html; charset=utf-8", ASSET_CADCAM_OS_HTML.as_bytes()),
             "/bahaforge-rfq-quote-ai.js" => write_raw(&mut stream, 200, "application/javascript; charset=utf-8", ASSET_RFQ_JS.as_bytes()),
             "/app-i18n-23.js" => write_raw(&mut stream, 200, "application/javascript; charset=utf-8", ASSET_I18N_JS.as_bytes()),
@@ -156,13 +158,18 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
             "/volumill_engine.js" => write_raw(&mut stream, 200, "application/javascript; charset=utf-8", ASSET_VOLUMILL_JS.as_bytes()),
             "/api/health" => {
                 let key_ok = get_xai_key().is_some();
+                let wa_ok = get_env_var_multi("KAPSO_API_KEY").is_some();
+                let (_, _, smtp_u, smtp_p) = get_smtp_creds();
                 let mem_n = load_ml_records().len();
                 let resp = format!(
-                    r#"{{"ok":true,"engine":"BahaForge Pure Rust Native Engine + Self-Learning ML v7.0 (Zero-Python)","os":"{}","arch":"{}","ml_samples":{},"xai_configured":{}}}"#,
+                    r#"{{"ok":true,"engine":"BahaTech Industry Pure Rust Engine v7.2","os":"{}","arch":"{}","ml_samples":{},"xai_configured":{},"whatsapp_api_ready":{},"smtp_ready":{},"smtp_user":"{}"}}"#,
                     env::consts::OS,
                     env::consts::ARCH,
                     mem_n,
-                    key_ok
+                    key_ok,
+                    wa_ok,
+                    !smtp_p.is_empty(),
+                    json_escape(&smtp_u)
                 );
                 write_json(&mut stream, 200, &resp)
             }
@@ -170,7 +177,7 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
                 let mem = load_ml_records();
                 let n = mem.len();
                 let conf = if n == 0 { 0 } else { (n.min(12) * 65 / 12 + 28).min(97) };
-                let resp = format!(r#"{{"ok":true,"trained":{},"confidence":{},"engine":"BahaForge-Rust-LocalML-kNN"}}"#, n, conf);
+                let resp = format!(r#"{{"ok":true,"trained":{},"confidence":{},"engine":"BahaTech-Rust-LocalML"}}"#, n, conf);
                 write_json(&mut stream, 200, &resp)
             }
             _ => write_json(&mut stream, 404, r#"{"ok":false,"error":"Sayfa bulunamadı"}"#),
@@ -198,6 +205,14 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
             }
             "/api/ml/predict" => {
                 let json = handle_ml_predict(&body_str);
+                write_json(&mut stream, 200, &json)
+            }
+            "/api/whatsapp/send" => {
+                let json = handle_direct_whatsapp_send(&body_str);
+                write_json(&mut stream, 200, &json)
+            }
+            "/api/email/send" => {
+                let json = handle_direct_email_send(&body_str);
                 write_json(&mut stream, 200, &json)
             }
             _ => write_json(&mut stream, 404, r#"{"ok":false,"error":"Bilinmeyen uç nokta"}"#),
@@ -233,8 +248,8 @@ fn write_raw(stream: &mut TcpStream, status: u16, ctype: &str, body: &[u8]) -> s
     stream.flush()
 }
 
-fn get_xai_key() -> Option<String> {
-    if let Ok(v) = env::var("XAI_API_KEY") {
+fn get_env_var_multi(var_name: &str) -> Option<String> {
+    if let Ok(v) = env::var(var_name) {
         let t = v.trim().trim_matches('"').trim_matches('\'').to_string();
         if !t.is_empty() {
             return Some(t);
@@ -243,9 +258,11 @@ fn get_xai_key() -> Option<String> {
     let mut paths: Vec<PathBuf> = vec![
         PathBuf::from(".env"),
         PathBuf::from("/Users/bahadir/Desktop/BahaTech/.env"),
+        PathBuf::from("/Users/bahadir/Desktop/BahaTech/DigitalProductFactory/.env"),
     ];
     if let Ok(home) = env::var("HOME").or_else(|_| env::var("USERPROFILE")) {
         paths.push(PathBuf::from(&home).join("Desktop").join("BahaTech").join(".env"));
+        paths.push(PathBuf::from(&home).join("Desktop").join("BahaTech").join("DigitalProductFactory").join(".env"));
         paths.push(PathBuf::from(&home).join(".bahaforge.env"));
     }
     if let Ok(exe) = env::current_exe() {
@@ -253,10 +270,11 @@ fn get_xai_key() -> Option<String> {
             paths.push(dir.join(".env"));
         }
     }
+    let prefix = format!("{}=", var_name);
     for p in paths {
         if let Ok(txt) = fs::read_to_string(&p) {
             for line in txt.lines() {
-                if let Some(rest) = line.trim().strip_prefix("XAI_API_KEY=") {
+                if let Some(rest) = line.trim().strip_prefix(&prefix) {
                     let t = rest.trim().trim_matches('"').trim_matches('\'').to_string();
                     if !t.is_empty() {
                         return Some(t);
@@ -266,6 +284,206 @@ fn get_xai_key() -> Option<String> {
         }
     }
     None
+}
+
+fn get_smtp_creds() -> (String, u16, String, String) {
+    let host = get_env_var_multi("SMTP_HOST").unwrap_or_else(|| "smtp.porkbun.com".into());
+    let port = get_env_var_multi("SMTP_PORT").and_then(|v| v.parse::<u16>().ok()).unwrap_or(587);
+    let user = get_env_var_multi("PORKBUN_SMTP_USER")
+        .or_else(|| get_env_var_multi("SMTP_USER"))
+        .unwrap_or_else(|| "admin@bahatechsoftware.com".into());
+    let pass = get_env_var_multi("PORKBUN_SMTP_PASS")
+        .or_else(|| get_env_var_multi("SMTP_PASS"))
+        .unwrap_or_default();
+    (host, port, user, pass)
+}
+
+/// Direct IN-APP WhatsApp delivery via Kapso Official WhatsApp Cloud API (NEVER redirects to WhatsApp Web!)
+fn handle_direct_whatsapp_send(body: &str) -> String {
+    let to_raw = extract_json_str(body, "to");
+    let to_digits: String = to_raw.chars().filter(|c| c.is_ascii_digit()).collect();
+    let to_clean = if to_digits.starts_with('0') && to_digits.len() == 11 {
+        format!("90{}", &to_digits[1..])
+    } else if to_digits.starts_with('5') && to_digits.len() == 10 {
+        format!("90{}", to_digits)
+    } else {
+        to_digits
+    };
+    let text = extract_json_str(body, "text");
+    if to_clean.len() < 10 || text.trim().is_empty() {
+        return r#"{"ok":false,"error":"Geçerli bir telefon numarası (ör: 90553...) ve mesaj metni girin."}"#.into();
+    }
+
+    let custom_key = extract_json_str(body, "api_key");
+    let api_key = if !custom_key.is_empty() { Some(custom_key) } else { get_env_var_multi("KAPSO_API_KEY") };
+    let Some(api_key) = api_key else {
+        return r#"{"ok":false,"error":"Kapso WhatsApp API anahtarı yapılandırılmamış. Firma & Bağlantılar sekmesinden ekleyebilirsiniz."}"#.into();
+    };
+
+    let custom_pid = extract_json_str(body, "phone_number_id");
+    let phone_id = if !custom_pid.is_empty() {
+        custom_pid
+    } else {
+        get_env_var_multi("KAPSO_PHONE_NUMBER_ID").unwrap_or_else(|| "597907523413541".into())
+    };
+
+    let payload = format!(
+        r#"{{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{{"name":"send_whatsapp_message","arguments":{{"phone_number_id":"{}","to":"{}","type":"text","body":"{}"}}}}}}"#,
+        json_escape(&phone_id),
+        json_escape(&to_clean),
+        json_escape(&text)
+    );
+
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(3);
+    let tmp_req = env::temp_dir().join(format!("baha_wa_{}.json", stamp));
+    if fs::write(&tmp_req, payload.as_bytes()).is_err() {
+        return r#"{"ok":false,"error":"Geçici istek dosyası yazılamadı."}"#.into();
+    }
+
+    let curl_bin = if cfg!(target_os = "windows") { "curl.exe" } else { "/usr/bin/curl" };
+    let out = Command::new(curl_bin)
+        .args([
+            "-sS",
+            "--max-time",
+            "25",
+            "https://api.kapso.ai/mcp",
+            "-H",
+            "Content-Type: application/json",
+            "-H",
+            "Accept: application/json, text/event-stream",
+            "-H",
+            &format!("X-API-Key: {}", api_key),
+            "--data-binary",
+            &format!("@{}", tmp_req.to_string_lossy()),
+        ])
+        .output();
+    let _ = fs::remove_file(&tmp_req);
+
+    match out {
+        Ok(o) if o.status.success() => {
+            let resp_s = String::from_utf8_lossy(&o.stdout).to_string();
+            let is_err = resp_s.contains("\"isError\":true")
+                || resp_s.contains("error_code")
+                || resp_s.contains("\"error\":");
+            if is_err {
+                let err_detail = extract_json_str(&resp_s, "text");
+                let msg = if !err_detail.is_empty() { err_detail } else { resp_s.chars().take(240).collect() };
+                format!(
+                    r#"{{"ok":false,"to":"{}","error":"{}"}}"#,
+                    json_escape(&to_clean),
+                    json_escape(&msg)
+                )
+            } else {
+                let wamid = extract_json_str(&resp_s, "id");
+                format!(
+                    r#"{{"ok":true,"channel":"whatsapp_cloud_api","to":"{}","message_id":"{}","phone_number_id":"{}"}}"#,
+                    json_escape(&to_clean),
+                    json_escape(&wamid),
+                    json_escape(&phone_id)
+                )
+            }
+        }
+        Ok(o) => {
+            let err = String::from_utf8_lossy(&o.stderr).to_string();
+            format!(r#"{{"ok":false,"error":"WhatsApp API bağlantı hatası: {}"}}"#, json_escape(&err))
+        }
+        Err(e) => format!(r#"{{"ok":false,"error":"curl çalıştırılamadı: {}"}}"#, json_escape(&e.to_string())),
+    }
+}
+
+/// Direct IN-APP TLS SMTP Email delivery via Pure Rust + native OS curl (NEVER opens mailto:/Apple Mail!)
+fn handle_direct_email_send(body: &str) -> String {
+    let to_email = extract_json_str(body, "to").trim().to_string();
+    let subject = extract_json_str(body, "subject");
+    let content = extract_json_str(body, "body");
+    let sender_name = extract_json_str(body, "sender_name");
+    if !to_email.contains('@') || content.trim().is_empty() {
+        return r#"{"ok":false,"error":"Geçerli bir alıcı e-posta adresi ve mesaj içeriği girin."}"#.into();
+    }
+
+    let (def_host, def_port, def_user, def_pass) = get_smtp_creds();
+    let host = {
+        let h = extract_json_str(body, "smtp_host");
+        if !h.is_empty() { h } else { def_host }
+    };
+    let port = {
+        let p = extract_json_num(body, "smtp_port", def_port as f64) as u16;
+        if p > 0 { p } else { def_port }
+    };
+    let user = {
+        let u = extract_json_str(body, "smtp_user");
+        if !u.is_empty() { u } else { def_user }
+    };
+    let pass = {
+        let p = extract_json_str(body, "smtp_pass");
+        if !p.is_empty() { p } else { def_pass }
+    };
+    if pass.is_empty() {
+        return r#"{"ok":false,"error":"SMTP şifresi tanımlı değil. Firma & Bağlantılar sekmesinden SMTP/Uygulama Şifresi girin."}"#.into();
+    }
+
+    let disp_name = if sender_name.is_empty() { "BahaTech" } else { &sender_name };
+    let subj_b64 = base64_encode(subject.as_bytes());
+    let name_b64 = base64_encode(disp_name.as_bytes());
+    let eml = format!(
+        "From: =?UTF-8?B?{}?= <{}>\r\nTo: {}\r\nReply-To: {}\r\nSubject: =?UTF-8?B?{}?=\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n{}\r\n",
+        name_b64, user, to_email, user, subj_b64, content
+    );
+
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(4);
+    let tmp_eml = env::temp_dir().join(format!("baha_mail_{}.eml", stamp));
+    if fs::write(&tmp_eml, eml.as_bytes()).is_err() {
+        return r#"{"ok":false,"error":"E-posta geçici dosyası oluşturulamadı."}"#.into();
+    }
+
+    let smtp_url = if port == 465 {
+        format!("smtps://{}:{}", host, port)
+    } else {
+        format!("smtp://{}:{}", host, port)
+    };
+    let curl_bin = if cfg!(target_os = "windows") { "curl.exe" } else { "/usr/bin/curl" };
+    let out = Command::new(curl_bin)
+        .args([
+            "-sS",
+            "--max-time",
+            "25",
+            "--url",
+            &smtp_url,
+            "--ssl-reqd",
+            "--user",
+            &format!("{}:{}", user, pass),
+            "--mail-from",
+            &user,
+            "--mail-rcpt",
+            &to_email,
+            "--upload-file",
+            &tmp_eml.to_string_lossy(),
+        ])
+        .output();
+    let _ = fs::remove_file(&tmp_eml);
+
+    match out {
+        Ok(o) if o.status.success() => format!(
+            r#"{{"ok":true,"channel":"smtp_direct","from":"{}","to":"{}"}}"#,
+            json_escape(&user),
+            json_escape(&to_email)
+        ),
+        Ok(o) => {
+            let err = String::from_utf8_lossy(&o.stderr).to_string();
+            format!(r#"{{"ok":false,"error":"SMTP gönderim hatası: {}"}}"#, json_escape(&err))
+        }
+        Err(e) => format!(r#"{{"ok":false,"error":"curl SMTP hatası: {}"}}"#, json_escape(&e.to_string())),
+    }
+}
+
+fn get_xai_key() -> Option<String> {
+    get_env_var_multi("XAI_API_KEY")
 }
 
 fn base64_encode(data: &[u8]) -> String {

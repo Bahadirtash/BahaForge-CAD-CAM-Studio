@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BahaWorks — Endüstriyel Talaşlı İmalat, CAD/CAM & e-Fatura</title>
+<style>
+  :root {
+    --bg: #f2f5f9;
+    --glass: rgba(255, 255, 255, 0.78);
+    --glass-strong: rgba(255, 255, 255, 0.90);
+    --border: rgba(15, 23, 42, 0.085);
+    --border-focus: rgba(29, 78, 216, 0.45);
+    --ink: #0f172a;
+    --ink-2: #334155;
+    --muted: #64748b;
+    --accent: #1d4ed8;
+    --accent-hover: #1e40af;
+    --accent-soft: rgba(29, 78, 216, 0.08);
+    --ok: #047857;
+    --ok-soft: rgba(4, 120, 87, 0.09);
+    --warn: #b45309;
+    --warn-soft: rgba(180, 83, 9, 0.09);
+    --err: #b91c1c;
+    --err-soft: rgba(185, 28, 28, 0.09);
+    --radius: 14px;
+    --radius-sm: 9px;
+    --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 30px -14px rgba(15, 23, 42, 0.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(at 12% 8%, rgba(219, 234, 254, 0.65) 0, transparent 48%),
+      radial-gradient(at 88% 12%, rgba(224, 231, 255, 0.45) 0, transparent 44%),
+      radial-gradient(at 78% 90%, rgba(209, 250, 229, 0.35) 0, transparent 45%),
+      var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* APP SHELL */
+  .shell { display: grid; grid-template-columns: 232px 1fr; height: 100vh; width: 100vw; }
+
+  /* FROSTED SIDEBAR */
+  .rail {
+    background: rgba(255, 255, 255, 0.68);
+    backdrop-filter: blur(26px) saturate(160%);
+    -webkit-backdrop-filter: blur(26px) saturate(160%);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 20px 14px 16px;
+    user-select: none; -webkit-user-select: none;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px;
+    border-bottom: 1px solid var(--border); margin-bottom: 14px;
+  }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: linear-gradient(145deg, #0f172a, #1e3a8a);
+    color: #fff; display: grid; place-items: center;
+    font-weight: 700; font-size: 13px; letter-spacing: -0.4px;
+    box-shadow: 0 4px 12px -4px rgba(15, 23, 42, 0.45);
+  }
+  .brand-name { font-size: 14px; font-weight: 700; letter-spacing: -0.25px; color: var(--ink); line-height: 1.15; }
+  .brand-sub { font-size: 11px; color: var(--muted); font-weight: 500; }
+
+  .nav-group-label {
+    font-size: 10.5px; font-weight: 600; color: var(--muted); letter-spacing: 0.4px;
+    text-transform: uppercase; padding: 8px 10px 6px;
+  }
+  .nav { display: flex; flex-direction: column; gap: 3px; }
+  .nav-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 11px; border-radius: 10px; border: 1px solid transparent;
+    background: transparent; color: var(--ink-2); font-size: 13px; font-weight: 550;
+    cursor: pointer; transition: all 0.14s ease; text-align: left; width: 100%;
+  }
+  .nav-item:hover { background: rgba(15, 23, 42, 0.04); color: var(--ink); }
+  .nav-item.active {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: var(--border);
+    color: var(--ink);
+    font-weight: 650;
+    box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.08);
+  }
+  .nav-left { display: flex; align-items: center; gap: 9px; }
+  .nav-item svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.7; fill: none; opacity: 0.78; }
+  .nav-item.active svg { color: var(--accent); opacity: 1; }
+  .nav-count {
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    background: rgba(15, 23, 42, 0.055); padding: 1px 7px; border-radius: 999px;
+  }
+
+  .rail-footer {
+    margin-top: auto; padding: 12px 10px 2px; border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .status-row { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; color: var(--muted); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; background: #94a3b8; }
+  .dot.on { background: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18); }
+
+  /* MAIN STAGE */
+  .stage { position: relative; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+  .view { display: none; height: 100%; width: 100%; overflow-y: auto; padding: 24px 28px 36px; }
+  .view.active { display: block; }
+  .view.frame-view { padding: 0; overflow: hidden; }
+  .view iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+
+  /* PAGE HEADER */
+  .page-head {
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+    margin-bottom: 20px;
+  }
+  .page-title { font-size: 21px; font-weight: 700; letter-spacing: -0.45px; color: var(--ink); }
+  .page-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .head-actions { display: flex; align-items: center; gap: 8px; }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    height: 36px; padding: 0 14px; border-radius: var(--radius-sm);
+    font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.14s ease;
+    border: 1px solid var(--border); background: var(--glass-strong); color: var(--ink);
+    font-family: inherit; white-space: nowrap;
+  }
+  .btn svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 1.8; fill: none; }
+  .btn:hover { background: #fff; border-color: rgba(15, 23, 42, 0.18); }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 2px 8px -2px rgba(29, 78, 216, 0.45); }
+  .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn.success { background: var(--ok); border-color: var(--ok); color: #fff; box-shadow: 0 2px 8px -2px rgba(4, 120, 87, 0.4); }
+  .btn.success:hover { background: #065f46; }
+  .btn.sm { height: 30px; padding: 0 10px; font-size: 12px; }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
+  .btn.ghost:hover { background: rgba(15, 23, 42, 0.05); }
+
+  /* KPI ROW (MAX 4 CARDS, AIRY) */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .kpi-card {
+    background: var(--glass);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .kpi-label { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+  .kpi-val { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: var(--ink); margin-top: 6px; }
+  .kpi-meta { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  .kpi-card.emphasis .kpi-val { color: var(--accent); }
+
+  /* GLASS CARDS & GRIDS */
+  .split-2 { display: grid; grid-template-columns: 1.12fr 0.88fr; gap: 20px; align-items: start; }
+  @media (max-width: 1120px) { .split-2 { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+  .card {
+    background: var(--glass);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    box-shadow: var(--shadow);
+  }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-bottom: 16px;
+  }
+  .card-title { font-size: 14px; font-weight: 650; color: var(--ink); letter-spacing: -0.15px; }
+  .card-meta { font-size: 12px; color: var(--muted); }
+
+  /* DROPZONE */
+  .dropzone {
+    border: 1.5px dashed rgba(29, 78, 216, 0.28);
+    background: rgba(255, 255, 255, 0.55);
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    cursor: pointer; transition: all 0.15s ease;
+    margin-bottom: 16px;
+  }
+  .dropzone:hover, .dropzone.drag {
+    border-color: var(--accent);
+    background: rgba(219, 234, 254, 0.35);
+  }
+  .dz-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .dz-icon {
+    width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center;
+  }
+  .dz-icon svg { width: 19px; height: 19px; stroke: currentColor; stroke-width: 1.8; fill: none; }
+  .dz-title { font-size: 13.5px; font-weight: 650; color: var(--ink); }
+  .dz-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .preview-bar {
+    display: none; align-items: center; gap: 14px; padding: 12px 14px;
+    border-radius: 11px; background: rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--border); margin-bottom: 16px;
+  }
+  .preview-bar.show { display: flex; }
+  .preview-thumb { width: 96px; height: 68px; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 7px; flex-shrink: 0; }
+  .preview-note { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+
+  /* SEGMENTED CONTROL */
+  .seg {
+    display: inline-flex; padding: 3px; border-radius: 10px;
+    background: rgba(15, 23, 42, 0.055); border: 1px solid rgba(15, 23, 42, 0.04);
+    gap: 2px;
+  }
+  .seg-btn {
+    border: 0; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600;
+    padding: 6px 11px; border-radius: 7px; cursor: pointer; transition: all 0.14s ease; font-family: inherit;
+  }
+  .seg-btn.active {
+    background: #fff; color: var(--ink);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.10);
+  }
+
+  /* FORMS */
+  .section-label {
+    font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.45px;
+    color: var(--muted); margin: 18px 0 10px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .form-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .form-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 11.5px; font-weight: 600; color: var(--ink-2); }
+  .field input, .field select, .field textarea {
+    width: 100%; height: 36px; padding: 0 11px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(15, 23, 42, 0.13);
+    border-radius: 8px; color: var(--ink); font-size: 13px; font-family: inherit;
+    transition: border-color 0.14s ease, box-shadow 0.14s ease;
+  }
+  .field textarea { height: auto; padding: 11px 12px; line-height: 1.55; resize: vertical; }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12);
+  }
+
+  /* MEMORY STRIP */
+  .memory-strip {
+    margin-top: 16px; padding: 11px 14px; border-radius: 10px;
+    background: rgba(248, 250, 252, 0.85); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    font-size: 12px; color: var(--ink-2);
+  }
+
+  /* INLINE FEEDBACK BANNER */
+  .banner {
+    display: none; padding: 10px 13px; border-radius: 9px; font-size: 12.5px; font-weight: 550;
+    margin-bottom: 12px; line-height: 1.45;
+  }
+  .banner.show { display: block; }
+  .banner.ok { background: var(--ok-soft); color: var(--ok); border: 1px solid rgba(4, 120, 87, 0.22); }
+  .banner.err { background: var(--err-soft); color: var(--err); border: 1px solid rgba(185, 28, 28, 0.22); }
+  .banner.info { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(29, 78, 216, 0.22); }
+
+  /* BREAKDOWN BOX */
+  .breakdown {
+    background: rgba(248, 250, 252, 0.88); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;
+    display: flex; flex-direction: column; gap: 6px; font-size: 12.5px;
+  }
+  .br-row { display: flex; justify-content: space-between; color: var(--ink-2); }
+  .br-row.total { border-top: 1px solid var(--border); padding-top: 7px; margin-top: 2px; font-weight: 700; color: var(--ink); font-size: 13.5px; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 650;
+    text-transform: uppercase; letter-spacing: 0.35px; color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 11px 12px; border-bottom: 1px solid rgba(15, 23, 42, 0.055); color: var(--ink); vertical-align: middle; }
+  tr:hover td { background: rgba(255, 255, 255, 0.55); }
+  .pill {
+    display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 650;
+  }
+  .pill.new { background: rgba(29, 78, 216, 0.10); color: #1d4ed8; }
+  .pill.quoted { background: rgba(180, 83, 9, 0.10); color: #b45309; }
+  .pill.sent { background: rgba(109, 40, 217, 0.10); color: #6d28d9; }
+  .pill.done { background: rgba(4, 120, 87, 0.10); color: #047857; }
+
+  /* PRINT STYLES */
+  @media print {
+    body { background: #fff !important; }
+    .rail, .head-actions, .no-print { display: none !important; }
+    .shell { display: block; }
+    .view { padding: 0; overflow: visible; }
+    .card { box-shadow: none; border: 1px solid #cbd5e1; backdrop-filter: none; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- LEFT FROSTED NAVIGATION RAIL -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">BW</div>
+      <div>
+        <div class="brand-name">BahaWorks</div>
+        <div class="brand-sub">Talaşlı İmalat &amp; ERP · 7.2</div>
+      </div>
+    </div>
+
+    <div class="nav-group-label">Üretim Akışı</div>
+    <nav class="nav">
+      <button class="nav-item active" data-view="quotes">
+        <span class="nav-left">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Teklif &amp; Maliyet
+        </span>
+        <span class="nav-count num" id="navQuoteCount">0</span>
+      </button>
+
+      <button class="nav-item" data-view="cad">
+        <span class="nav-left">
+          <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          3D Model (STEP)
+        </span>
+      </button>
+
+      <button class="nav-item" data-view="cam">
+        <span class="nav-left">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          CNC Takım Yolu
+        </span>
+      </button>
+
+      <button class="nav-item" data-view="invoice">
+        <span class="nav-left">
+          <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>
+          GİB e-Fatura
+        </span>
+        <span class="nav-count num" id="navInvCount">0</span>
+      </button>
+    </nav>
+
+    <div class="nav-group-label" style="margin-top:12px;">Sistem</div>
+    <nav class="nav">
+      <button class="nav-item" data-view="settings">
+        <span class="nav-left">
+          <svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          Firma &amp; Bağlantılar
+        </span>
+      </button>
+    </nav>
+
+    <div class="rail-footer">
+      <div class="status-row"><span><span class="dot on" id="dotEngine"></span>Yerel Çekirdek</span><span id="lblEngine">Hazır</span></div>
+      <div class="status-row"><span><span class="dot" id="dotWa"></span>WhatsApp API</span><span id="lblWa">Kontrol</span></div>
+      <div class="status-row"><span><span class="dot" id="dotSmtp"></span>Kurumsal E-Posta</span><span id="lblSmtp">Kontrol</span></div>
+    </div>
+  </aside>
+
+  <!-- MAIN WORKSPACE -->
+  <main class="stage">
+    <!-- 1. TEKLİF & MALİYET -->
+    <section class="view active" id="view-quotes">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">Teklif &amp; Maliyet Hesabı</h1>
+          <p class="page-sub">Teknik resim okuma, kütük ve işçilik maliyetlendirmesi, uygulama içi doğrudan WhatsApp ve e-posta iletimi</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn" id="btnNewQuote">Yeni Kayıt</button>
+          <button class="btn primary" id="btnSaveQuote">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            Kaydet &amp; Hafızaya Al
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 CLEAN KPI CARDS -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Kütük / Net Ağırlık</div>
+          <div class="kpi-val num" id="kpiWeight">0,00 kg</div>
+          <div class="kpi-meta" id="kpiWeightSub">Parça başı kütük hesabı</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Birim Malzeme</div>
+          <div class="kpi-val num" id="kpiMat">0,00 ₺</div>
+          <div class="kpi-meta" id="kpiMatSub">Parti toplamı</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Birim İşçilik</div>
+          <div class="kpi-val num" id="kpiLabor">0,00 ₺</div>
+          <div class="kpi-meta" id="kpiLaborSub">Tezgâh + Setup + Fason</div>
+        </div>
+        <div class="kpi-card emphasis">
+          <div class="kpi-label">Genel Toplam (KDV Dahil)</div>
+          <div class="kpi-val num" id="kpiGrand">0,00 ₺</div>
+          <div class="kpi-meta num" id="kpiUnitSell">Birim: 0,00 ₺ + KDV</div>
+        </div>
+      </div>
+
+      <div class="split-2">
+        <!-- LEFT: DRAWING + PARAMETERS -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Teknik Resim ve Maliyet Parametreleri</div>
+            <div class="seg" id="modeSeg">
+              <button type="button" class="seg-btn active" data-mode="billet">Kütük (mm)</button>
+              <button type="button" class="seg-btn" data-mode="unit">Parça Başı</button>
+              <button type="button" class="seg-btn" data-mode="grams">Net Gram</button>
+              <button type="button" class="seg-btn" data-mode="fason">Fason</button>
+            </div>
+          </div>
+
+          <div class="dropzone" id="dropzone">
+            <input type="file" id="fileInp" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/*" style="display:none" />
+            <div class="dz-left">
+              <div class="dz-icon">
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </div>
+              <div>
+                <div class="dz-title" id="dzTitle">Teknik resim PDF veya görsel yükleyin</div>
+                <div class="dz-sub" id="dzSub">Antet, malzeme kodu, ham kütük ölçüsü, adet ve toleranslar otomatik okunur</div>
+              </div>
+            </div>
+            <button type="button" class="btn sm" id="btnPickFile">Dosya Seç</button>
+          </div>
+
+          <div class="preview-bar" id="previewBar">
+            <img id="previewImg" class="preview-thumb" alt="Teknik Resim" />
+            <div class="preview-note" id="previewNote"></div>
+          </div>
+
+          <div class="section-label">Müşteri ve Parça Bilgileri</div>
+          <div class="form-3">
+            <div class="field"><label>Müşteri / Firma</label><input id="fCustomer" value="ETİ MAKİNE A.Ş." /></div>
+            <div class="field"><label>Yetkili</label><input id="fContact" value="Satın Alma Müdürlüğü" /></div>
+            <div class="field"><label>Parça Adı</label><input id="fPartName" value="Uzun Krank Kolu" /></div>
+            <div class="field"><label>Parça / Resim Kodu</label><input id="fPartCode" value="U00103378/C" /></div>
+            <div class="field"><label>Sipariş Adedi</label><input id="fQty" type="number" min="1" value="2" class="num" /></div>
+            <div class="field"><label>Tolerans</label><input id="fTol" value="ISO 2768-fH-E · Ø15 H7" /></div>
+          </div>
+
+          <div class="section-label">Malzeme ve Kütük</div>
+          <div class="form-3">
+            <div class="field">
+              <label>Alaşım</label>
+              <select id="fMatKey">
+                <option value="ss304">AISI 304 · 1.4301 (7.93)</option>
+                <option value="ss316">AISI 316L · 1.4404 (7.98)</option>
+                <option value="steel4140">4140 · 42CrMo4 (7.85)</option>
+                <option value="st37">St37 · S235JR (7.85)</option>
+                <option value="al7075">Alüminyum 7075-T6 (2.81)</option>
+                <option value="al6061">Alüminyum 6061-T6 (2.70)</option>
+                <option value="ti64">Titanyum Ti-6Al-4V (4.43)</option>
+                <option value="brass">Pirinç MS58 (8.47)</option>
+                <option value="pom">Delrin / POM (1.41)</option>
+              </select>
+            </div>
+            <div class="field" id="wDirectMat" style="display:none"><label>Parça Başı Malzeme (₺)</label><input id="fDirectMat" type="number" step="10" value="1608" class="num" /></div>
+            <div class="field" id="wGrams" style="display:none"><label>Net Ağırlık (gram)</label><input id="fGrams" type="number" step="10" value="2310" class="num" /></div>
+            <div class="field" id="wKgPrice"><label>Kg Birim Fiyatı (₺/kg)</label><input id="fKgPrice" type="number" step="5" value="245" class="num" /></div>
+            <div class="field" id="wShape">
+              <label>Kütük Formu</label>
+              <select id="fShape">
+                <option value="prismatic">Prizmatik (X × Y × Z)</option>
+                <option value="cylindrical">Silindirik (ØD × Boy)</option>
+              </select>
+            </div>
+            <div class="field" id="wDimD" style="display:none"><label>Dış Çap ØD (mm)</label><input id="fDimD" type="number" step="0.5" value="60" class="num" /></div>
+            <div class="field" id="wDimX"><label>Genişlik X (mm)</label><input id="fDimX" type="number" step="0.5" value="56" class="num" /></div>
+            <div class="field" id="wDimY"><label>Derinlik Y (mm)</label><input id="fDimY" type="number" step="0.5" value="75" class="num" /></div>
+            <div class="field" id="wDimZ"><label>Uzunluk Z (mm)</label><input id="fDimZ" type="number" step="0.5" value="182.5" class="num" /></div>
+            <div class="field" id="wScrap"><label>Kesim / Fire Payı (%)</label><input id="fScrap" type="number" step="1" value="8" class="num" /></div>
+          </div>
+
+          <div class="section-label">İşçilik, Tezgâh ve Kâr Marjı</div>
+          <div class="form-3">
+            <div class="field"><label>CNC Torna (dk/ad)</label><input id="fTurnMin" type="number" value="20" class="num" /></div>
+            <div class="field"><label>Torna Saat (₺/sa)</label><input id="fTurnRate" type="number" step="50" value="1650" class="num" /></div>
+            <div class="field"><label>CNC Freze (dk/ad)</label><input id="fMillMin" type="number" value="75" class="num" /></div>
+            <div class="field"><label>Freze Saat (₺/sa)</label><input id="fMillRate" type="number" step="50" value="2100" class="num" /></div>
+            <div class="field"><label>Tel Erozyon (dk/ad)</label><input id="fEdmMin" type="number" value="0" class="num" /></div>
+            <div class="field"><label>Bağlama / Setup (dk)</label><input id="fSetupMin" type="number" value="90" class="num" /></div>
+            <div class="field"><label>Takım Aşınma (%)</label><input id="fToolPct" type="number" value="10" class="num" /></div>
+            <div class="field"><label>Dış Fason / Kaplama (₺)</label><input id="fOutside" type="number" step="10" value="0" class="num" /></div>
+            <div class="field"><label>Kâr Marjı (%)</label><input id="fMargin" type="number" value="28" class="num" /></div>
+          </div>
+
+          <div class="memory-strip">
+            <span id="mlStatusLabel">Geçmiş Kayıt Hafızası · Henüz kayıt yok — onayladığınız teklifler yerel olarak öğrenilir</span>
+            <button type="button" class="btn sm" id="btnApplyMemory">Hafızadan Öner</button>
+          </div>
+        </div>
+
+        <!-- RIGHT: DIRECT IN-APP DELIVERY (WHATSAPP & EMAIL — NEVER LEAVES APP!) -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Müşteriye Doğrudan İletim</div>
+            <div class="seg" id="chanSeg">
+              <button type="button" class="seg-btn active" data-chan="whatsapp">WhatsApp</button>
+              <button type="button" class="seg-btn" data-chan="email">E-Posta</button>
+            </div>
+          </div>
+
+          <div class="banner" id="sendBanner"></div>
+
+          <div class="breakdown num" id="breakdownBox"></div>
+
+          <div class="form-2" style="margin-bottom:12px;">
+            <div class="field" id="wToWa"><label>Alıcı WhatsApp Numarası</label><input id="fPhone" value="905438634770" placeholder="905..." class="num" /></div>
+            <div class="field" id="wToMail" style="display:none"><label>Alıcı E-Posta Adresi</label><input id="fEmail" value="info@karadagmakina.net" placeholder="ornek@firma.com" /></div>
+            <div class="field"><label>Termin (İş Günü)</label><input id="fLeadDays" type="number" value="7" class="num" /></div>
+          </div>
+
+          <div class="field" id="wSubject" style="display:none;margin-bottom:12px;">
+            <label>E-Posta Konusu</label>
+            <input id="fSubject" />
+          </div>
+
+          <div class="field" style="margin-bottom:14px;">
+            <label>Teklif Metni (Gönderim Öncesi Düzenlenebilir)</label>
+            <textarea id="fMessage" rows="12"></textarea>
+          </div>
+
+          <div style="display:flex;flex-wrap:wrap;gap:8px;" class="no-print">
+            <button type="button" class="btn success" id="btnSendWaDirect">
+              <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              WhatsApp ile Gönder
+            </button>
+            <button type="button" class="btn primary" id="btnSendMailDirect" style="display:none">
+              <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              E-Posta Gönder
+            </button>
+            <button type="button" class="btn" id="btnCopyMsg">Kopyala</button>
+            <button type="button" class="btn" id="btnPrintQuote">A4 PDF</button>
+            <button type="button" class="btn" id="btnToInvoice" style="margin-left:auto;">e-Faturaya Aktar →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- QUOTES HISTORY TABLE -->
+      <div class="card" style="margin-top:20px;">
+        <div class="card-head">
+          <div class="card-title">Teklif Kayıtları</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="quoteSearch" placeholder="Müşteri, parça veya kod ara..." style="height:32px;padding:0 11px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,0.9);font-size:12.5px;width:230px;" />
+            <button type="button" class="btn sm" id="btnExportCsv">CSV İndir</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Kod</th>
+                <th>Müşteri</th>
+                <th>Parça &amp; Malzeme</th>
+                <th>Adet</th>
+                <th>Toplam (KDV Dahil)</th>
+                <th>Durum</th>
+                <th class="no-print">İşlem</th>
+              </tr>
+            </thead>
+            <tbody id="quotesTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 3D MODEL (STEP) -->
+    <section class="view frame-view" id="view-cad">
+      <iframe src="bahacad.html" title="3D Model STEP"></iframe>
+    </section>
+
+    <!-- 3. CNC TAKIM YOLU (CAM) -->
+    <section class="view frame-view" id="view-cam">
+      <iframe src="bahacam.html" title="CNC Takım Yolu"></iframe>
+    </section>
+
+    <!-- 4. GİB e-FATURA & MUHASEBE -->
+    <section class="view" id="view-invoice">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">GİB e-Fatura &amp; e-Arşiv</h1>
+          <p class="page-sub">Onaylanan tekliflerden tek adımda UBL-TR 1.2 XML, muhasebe aktarımı ve resmi A4 fatura oluşturun</p>
+        </div>
+        <div class="head-actions">
+          <button type="button" class="btn" id="btnInvXml">UBL-TR 1.2 XML İndir</button>
+          <button type="button" class="btn" id="btnInvErp">Logo / Mikro CSV</button>
+          <button type="button" class="btn primary" id="btnInvSave">Faturayı Kes &amp; Kaydet</button>
+        </div>
+      </div>
+
+      <div class="split-2">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Alıcı ve Fatura Bilgileri</div>
+            <span class="card-meta num" id="invEttnLabel">ETTN: -</span>
+          </div>
+          <div class="form-2" style="margin-bottom:12px;">
+            <div class="field"><label>Fatura Numarası</label><input id="invNo" value="BHW2026000000001" class="num" /></div>
+            <div class="field"><label>Fatura Tarihi</label><input id="invDate" type="date" /></div>
+            <div class="field"><label>Alıcı Ticari Unvanı</label><input id="invBuyer" value="ETİ MAKİNE SANAYİ VE TİCARET A.Ş." /></div>
+            <div class="field"><label>Alıcı VKN / TCKN</label><input id="invVkn" value="3810045120" class="num" /></div>
+            <div class="field"><label>Alıcı Vergi Dairesi</label><input id="invTaxOffice" value="Eskişehir Vergi Dairesi" /></div>
+            <div class="field">
+              <label>GİB Senaryosu</label>
+              <select id="invScenario">
+                <option value="TICARIFATURA">TİCARİ FATURA (e-Fatura)</option>
+                <option value="TEMELFATURA">TEMEL FATURA (e-Fatura)</option>
+                <option value="EARSIVFATURA">e-ARŞİV FATURA</option>
+                <option value="IHRACAT">İHRACAT FATURASI</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="section-label">Fatura Kalemi</div>
+          <div class="form-3">
+            <div class="field"><label>Mal / Hizmet Açıklaması</label><input id="invItemName" value="Uzun Krank Kolu (U00103378/C) CNC İmalat" /></div>
+            <div class="field"><label>Miktar (Adet)</label><input id="invQty" type="number" value="2" class="num" /></div>
+            <div class="field"><label>Birim Fiyat (KDV Hariç ₺)</label><input id="invUnitPrice" type="number" step="10" value="6950" class="num" /></div>
+            <div class="field">
+              <label>KDV Oranı (%)</label>
+              <select id="invVatRate"><option value="20">%20</option><option value="10">%10</option><option value="0">%0 (İstisna)</option></select>
+            </div>
+            <div class="field">
+              <label>KDV Tevkifatı</label>
+              <select id="invWithhold"><option value="0">Yok</option><option value="0.4">4/10 Tevkifat</option><option value="0.5">5/10 Tevkifat</option><option value="0.7">7/10 Tevkifat</option></select>
+            </div>
+            <div class="field"><label>Ödeme / İrsaliye Notu</label><input id="invNote" value="Malzeme + CNC talaşlı imalat bedelidir." /></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Fatura Özeti ve GİB Doğrulama</div>
+            <button type="button" class="btn sm" onclick="window.print()">A4 Yazdır</button>
+          </div>
+          <div class="breakdown num" id="invSummaryBox"></div>
+          <div class="banner ok show" id="invCheckBanner">UBL-TR 1.2 şema alanları (VKN, ETTN, KDV kırılımı ve satıcı bilgileri) GİB e-Fatura portalına ve özel entegratörlere aktarıma uygundur.</div>
+          <div class="section-label">Kesilen Faturalar</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Fatura No</th><th>Alıcı</th><th>Toplam</th><th>Senaryo</th></tr></thead>
+              <tbody id="invTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. FİRMA & BAĞLANTILAR -->
+    <section class="view" id="view-settings">
+      <div class="page-head">
+        <div>
+          <h1 class="page-title">Firma ve Bağlantı Ayarları</h1>
+          <p class="page-sub">Kurumsal antet bilgileri, doğrudan uygulama içi WhatsApp API ve kurumsal SMTP e-posta bağlantısı</p>
+        </div>
+        <div class="head-actions">
+          <button type="button" class="btn" id="btnBackupJson">Verileri Yedekle</button>
+          <button type="button" class="btn primary" id="btnSaveSettings">Ayarları Kaydet</button>
+        </div>
+      </div>
+
+      <div class="split-2">
+        <div class="card">
+          <div class="card-head"><div class="card-title">Kurumsal Firma Bilgileri</div></div>
+          <div class="form-2">
+            <div class="field"><label>Firma Unvanı</label><input id="sCompany" value="BahaTech Makina & Yazılım" /></div>
+            <div class="field"><label>Vergi Kimlik No (VKN)</label><input id="sVkn" value="1234567890" class="num" /></div>
+            <div class="field"><label>Vergi Dairesi</label><input id="sTaxOffice" value="Eskişehir" /></div>
+            <div class="field"><label>Yetkili Adı</label><input id="sManager" value="Bahadır Taş" /></div>
+            <div class="field"><label>Telefon</label><input id="sPhone" value="+90 543 863 47 70" /></div>
+            <div class="field"><label>IBAN</label><input id="sIban" value="TR00 0000 0000 0000 0000 0000 00" /></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title">Doğrudan İletim Kanalları (Uygulama İçi)</div></div>
+          <div class="section-label" style="margin-top:0;">WhatsApp Business API (Kapso)</div>
+          <div class="form-2" style="margin-bottom:12px;">
+            <div class="field"><label>Telefon Numarası ID (Boş bırakılırsa yerel .env kullanılır)</label><input id="sWaPhoneId" placeholder="597907523413541" /></div>
+            <div class="field"><label>API Anahtarı (Opsiyonel özel anahtar)</label><input id="sWaApiKey" type="password" placeholder="Sistemde tanımlı" /></div>
+          </div>
+
+          <div class="section-label">Kurumsal E-Posta (TLS SMTP)</div>
+          <div class="form-2">
+            <div class="field"><label>SMTP Sunucusu</label><input id="sSmtpHost" placeholder="smtp.porkbun.com / smtp.gmail.com" /></div>
+            <div class="field"><label>Port</label><input id="sSmtpPort" type="number" value="587" class="num" /></div>
+            <div class="field"><label>Gönderen E-Posta</label><input id="sSmtpUser" placeholder="admin@bahatechsoftware.com" /></div>
+            <div class="field"><label>SMTP / Uygulama Şifresi</label><input id="sSmtpPass" type="password" placeholder="Sistemde tanımlı" /></div>
+          </div>
+          <p style="font-size:11.5px;color:var(--muted);margin-top:12px;line-height:1.5;">
+            Tüm bilgiler cihazınızda yerel olarak saklanır. Gönderimler harici tarayıcıya veya harici posta uygulamasına yönlendirilmeden doğrudan bu uygulama üzerinden gerçekleştirilir.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const ALLOYS = {
+    ss304:     { name: "AISI 304 (1.4301)", density: 7.93, priceKg: 245 },
+    ss316:     { name: "AISI 316L (1.4404)", density: 7.98, priceKg: 315 },
+    steel4140: { name: "4140 (42CrMo4)", density: 7.85, priceKg: 115 },
+    st37:      { name: "St37 (S235JR)", density: 7.85, priceKg: 58 },
+    al7075:    { name: "Alüminyum 7075-T6", density: 2.81, priceKg: 420 },
+    al6061:    { name: "Alüminyum 6061-T6", density: 2.70, priceKg: 295 },
+    ti64:      { name: "Titanyum Ti-6Al-4V", density: 4.43, priceKg: 2650 },
+    brass:     { name: "Pirinç MS58", density: 8.47, priceKg: 460 },
+    pom:       { name: "Delrin / POM", density: 1.41, priceKg: 260 },
+  };
+
+  const K_QUOTES = "bahaworks_quotes_v72";
+  const K_INVOICES = "bahaworks_invoices_v72";
+  const K_SETTINGS = "bahaworks_settings_v72";
+
+  let pricingMode = "billet";
+  let sendChannel = "whatsapp";
+  let activeQuoteId = null;
+  let lastNetKgFromVision = 2.31;
+  let lastEngineeringNote = "";
+
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => Number(n || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  function loadJson(key, fallback) {
+    try { const r = localStorage.getItem(key); if (r) return JSON.parse(r); } catch (_) {}
+    return fallback;
+  }
+  function saveJson(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+  function getSettings() {
+    return loadJson(K_SETTINGS, {
+      company: "BahaTech Makina & Yazılım",
+      vkn: "1234567890",
+      taxOffice: "Eskişehir",
+      manager: "Bahadır Taş",
+      phone: "+90 543 863 47 70",
+      iban: "TR00 0000 0000 0000 0000 0000 00",
+      waPhoneId: "", waApiKey: "", smtpHost: "", smtpPort: 587, smtpUser: "", smtpPass: ""
+    });
+  }
+
+  // NAVIGATION
+  document.querySelectorAll(".nav-item[data-view]").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      btn.classList.add("active");
+      $("view-" + btn.dataset.view).classList.add("active");
+    };
+  });
+
+  // PRICING MODE SEGMENT
+  function setPricingMode(m) {
+    pricingMode = m;
+    document.querySelectorAll("#modeSeg .seg-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === m));
+    const cyl = $("fShape").value === "cylindrical";
+    $("wDirectMat").style.display = m === "unit" ? "flex" : "none";
+    $("wGrams").style.display = (m === "grams" || m === "unit") ? "flex" : "none";
+    $("wKgPrice").style.display = (m === "billet" || m === "grams") ? "flex" : "none";
+    $("wShape").style.display = m === "billet" ? "flex" : "none";
+    $("wDimD").style.display = (m === "billet" && cyl) ? "flex" : "none";
+    $("wDimX").style.display = (m === "billet" && !cyl) ? "flex" : "none";
+    $("wDimY").style.display = (m === "billet" && !cyl) ? "flex" : "none";
+    $("wDimZ").style.display = m === "billet" ? "flex" : "none";
+    $("wScrap").style.display = (m === "billet" || m === "grams") ? "flex" : "none";
+    recalc();
+  }
+  document.querySelectorAll("#modeSeg .seg-btn").forEach(b => b.onclick = () => setPricingMode(b.dataset.mode));
+
+  // CHANNEL SEGMENT (WHATSAPP vs EMAIL)
+  function setChannel(ch) {
+    sendChannel = ch;
+    document.querySelectorAll("#chanSeg .seg-btn").forEach(b => b.classList.toggle("active", b.dataset.chan === ch));
+    const isWa = ch === "whatsapp";
+    $("wToWa").style.display = isWa ? "flex" : "none";
+    $("wToMail").style.display = isWa ? "none" : "flex";
+    $("wSubject").style.display = isWa ? "none" : "flex";
+    $("btnSendWaDirect").style.display = isWa ? "inline-flex" : "none";
+    $("btnSendMailDirect").style.display = isWa ? "none" : "inline-flex";
+    recalc();
+  }
+  document.querySelectorAll("#chanSeg .seg-btn").forEach(b => b.onclick = () => setChannel(b.dataset.chan));
+
+  function readForm() {
+    return {
+      id: activeQuoteId || ("TKL-" + new Date().getFullYear() + "-" + Math.floor(100 + Math.random() * 900)),
+      date: new Date().toLocaleDateString("tr-TR"),
+      customer: $("fCustomer").value.trim(),
+      contact: $("fContact").value.trim(),
+      partName: $("fPartName").value.trim(),
+      partCode: $("fPartCode").value.trim(),
+      qty: Math.max(1, Number($("fQty").value) || 1),
+      tol: $("fTol").value.trim(),
+      pricingMode,
+      materialKey: $("fMatKey").value,
+      directMat: Number($("fDirectMat").value) || 0,
+      grams: Number($("fGrams").value) || 0,
+      kgPrice: Number($("fKgPrice").value) || 0,
+      shape: $("fShape").value,
+      dimD: Number($("fDimD").value) || 0,
+      dimX: Number($("fDimX").value) || 0,
+      dimY: Number($("fDimY").value) || 0,
+      dimZ: Number($("fDimZ").value) || 0,
+      scrap: Number($("fScrap").value) || 0,
+      turnMin: Number($("fTurnMin").value) || 0,
+      turnRate: Number($("fTurnRate").value) || 0,
+      millMin: Number($("fMillMin").value) || 0,
+      millRate: Number($("fMillRate").value) || 0,
+      edmMin: Number($("fEdmMin").value) || 0,
+      setupMin: Number($("fSetupMin").value) || 0,
+      toolPct: Number($("fToolPct").value) || 0,
+      outside: Number($("fOutside").value) || 0,
+      margin: Number($("fMargin").value) || 0,
+      phone: $("fPhone").value.trim(),
+      email: $("fEmail").value.trim(),
+      leadDays: Number($("fLeadDays").value) || 7,
+      note: lastEngineeringNote
+    };
+  }
+
+  function compute(f) {
+    const alloy = ALLOYS[f.materialKey] || ALLOYS.ss304;
+    let billetKg = 0, netKg = (f.grams || 0) / 1000, matUnit = 0, specLabel = "";
+    if (f.pricingMode === "fason") {
+      specLabel = "Müşteri malzemeli (fason CNC)";
+      matUnit = 0;
+    } else if (f.pricingMode === "unit") {
+      matUnit = Math.max(0, f.directMat);
+      billetKg = netKg;
+      specLabel = `Parça başı değerleme`;
+    } else if (f.pricingMode === "grams") {
+      billetKg = netKg * (1 + f.scrap / 100);
+      matUnit = billetKg * f.kgPrice;
+      specLabel = `Net ${(netKg * 1000).toFixed(0)} g · Fireli ${billetKg.toFixed(3)} kg`;
+    } else {
+      const volCm3 = f.shape === "cylindrical"
+        ? Math.PI * Math.pow(f.dimD / 20, 2) * (f.dimZ / 10)
+        : (f.dimX * f.dimY * f.dimZ) / 1000;
+      const rawKg = (volCm3 * alloy.density) / 1000;
+      billetKg = rawKg * (1 + f.scrap / 100);
+      netKg = lastNetKgFromVision > 0 && lastNetKgFromVision < rawKg ? lastNetKgFromVision : rawKg * 0.55;
+      matUnit = billetKg * f.kgPrice;
+      specLabel = f.shape === "cylindrical"
+        ? `Ø${f.dimD} × ${f.dimZ} mm (${rawKg.toFixed(2)} kg ham)`
+        : `${f.dimX} × ${f.dimY} × ${f.dimZ} mm (${rawKg.toFixed(2)} kg ham)`;
+    }
+
+    const turnU = (f.turnMin / 60) * f.turnRate;
+    const millU = (f.millMin / 60) * f.millRate;
+    const edmU = (f.edmMin / 60) * 1950;
+    const setupRate = Math.max(f.millRate, f.turnRate, 1650);
+    const setupU = ((f.setupMin / 60) * setupRate) / f.qty;
+    const rawMach = turnU + millU + edmU + setupU;
+    const toolU = rawMach * (f.toolPct / 100);
+    const laborUnit = rawMach + toolU + f.outside;
+
+    const costUnit = matUnit + laborUnit;
+    const sellUnit = costUnit * (1 + f.margin / 100);
+    const matTotal = matUnit * f.qty;
+    const laborTotal = laborUnit * f.qty;
+    const subTotal = sellUnit * f.qty;
+    const vat = subTotal * 0.20;
+    const grandTotal = subTotal + vat;
+
+    return { alloy, billetKg, netKg, specLabel, matUnit, matTotal, laborUnit, laborTotal, turnU, millU, setupU, toolU, sellUnit, subTotal, vat, grandTotal };
+  }
+
+  function recalc() {
+    const f = readForm();
+    const c = compute(f);
+    const s = getSettings();
+
+    $("kpiWeight").textContent = `${c.billetKg.toFixed(2)} kg`;
+    $("kpiWeightSub").textContent = c.netKg > 0 ? `Net işlenmiş ~${c.netKg.toFixed(2)} kg` : c.specLabel;
+    $("kpiMat").textContent = `${fmt(c.matUnit)} ₺`;
+    $("kpiMatSub").textContent = `${f.qty} adet toplam: ${fmt(c.matTotal)} ₺`;
+    $("kpiLabor").textContent = `${fmt(c.laborUnit)} ₺`;
+    $("kpiLaborSub").textContent = `${f.qty} adet toplam: ${fmt(c.laborTotal)} ₺`;
+    $("kpiGrand").textContent = `${fmt(c.grandTotal)} ₺`;
+    $("kpiUnitSell").textContent = `Birim: ${fmt(c.sellUnit)} ₺ + KDV`;
+
+    $("breakdownBox").innerHTML = `
+      <div class="br-row"><span>Malzeme · ${c.alloy.name} (${c.specLabel})</span><strong>${fmt(c.matTotal)} ₺</strong></div>
+      <div class="br-row"><span>CNC İşçilik &amp; Setup (${f.qty} adet · ${f.turnMin + f.millMin + f.edmMin} dk/ad)</span><strong>${fmt(c.laborTotal)} ₺</strong></div>
+      <div class="br-row"><span>Birim Satış Fiyatı (KDV Hariç)</span><strong>${fmt(c.sellUnit)} ₺ / adet</strong></div>
+      <div class="br-row"><span>Ara Toplam + %20 KDV (${fmt(c.vat)} ₺)</span><strong>${fmt(c.subTotal)} ₺</strong></div>
+      <div class="br-row total"><span>Genel Toplam</span><span>${fmt(c.grandTotal)} ₺</span></div>
+    `;
+
+    $("fSubject").value = `Fiyat Teklifimiz — ${f.partName} (${f.partCode}) · ${f.qty} Adet`;
+    $("fMessage").value =
+`Sayın ${f.contact || f.customer},
+
+İlettiğiniz ${f.partCode} kodlu "${f.partName}" teknik resmi için malzeme ve CNC talaşlı imalat teklifimizi bilgilerinize sunarız:
+
+• Parça / Kod: ${f.partName} (${f.partCode})
+• Miktar: ${f.qty} Adet
+• Malzeme: ${c.alloy.name} — ${c.specLabel}
+• Tolerans: ${f.tol || "ISO 2768-m"}
+
+FİYAT DÖKÜMÜ:
+• Ham Malzeme (${f.qty} adet): ${fmt(c.matTotal)} ₺
+• CNC İşçilik & Setup (${f.qty} adet): ${fmt(c.laborTotal)} ₺
+• Birim Fiyat (KDV Hariç): ${fmt(c.sellUnit)} ₺ / adet
+• Ara Toplam: ${fmt(c.subTotal)} ₺
+• KDV (%20): ${fmt(c.vat)} ₺
+• Genel Toplam: ${fmt(c.grandTotal)} ₺
+
+• Termin: Sipariş onayından itibaren ${f.leadDays} iş günü
+• Geçerlilik: 15 gün
+
+Saygılarımızla,
+${s.manager} — ${s.company}
+${s.phone}`;
+  }
+
+  function showBanner(type, text) {
+    const b = $("sendBanner");
+    b.className = "banner show " + type;
+    b.textContent = text;
+  }
+
+  // DIRECT IN-APP WHATSAPP SEND (NEVER OPENS WHATSAPP WEB!)
+  $("btnSendWaDirect").onclick = async () => {
+    const btn = $("btnSendWaDirect");
+    const to = $("fPhone").value.trim();
+    const text = $("fMessage").value.trim();
+    const s = getSettings();
+    btn.disabled = true;
+    showBanner("info", "WhatsApp Business API üzerinden doğrudan gönderiliyor...");
+    try {
+      const r = await fetch("/api/whatsapp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to, text, phone_number_id: s.waPhoneId || "", api_key: s.waApiKey || "" })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        const now = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+        showBanner("ok", `WhatsApp ile doğrudan gönderildi · +${d.to} · ${now}${d.message_id ? " · ID: " + d.message_id : ""}`);
+        upsertQuote("Gönderildi");
+      } else {
+        showBanner("err", d.error || "WhatsApp gönderimi başarısız oldu.");
+      }
+    } catch (e) {
+      showBanner("err", "Yerel çekirdek ile bağlantı kurulamadı: " + e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  // DIRECT IN-APP SMTP EMAIL SEND (NEVER OPENS MAILTO / APPLE MAIL!)
+  $("btnSendMailDirect").onclick = async () => {
+    const btn = $("btnSendMailDirect");
+    const s = getSettings();
+    btn.disabled = true;
+    showBanner("info", "Kurumsal SMTP sunucusu üzerinden doğrudan gönderiliyor...");
+    try {
+      const r = await fetch("/api/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: $("fEmail").value.trim(),
+          subject: $("fSubject").value.trim(),
+          body: $("fMessage").value,
+          sender_name: `${s.manager} — ${s.company}`,
+          smtp_host: s.smtpHost || "",
+          smtp_port: s.smtpPort || 587,
+          smtp_user: s.smtpUser || "",
+          smtp_pass: s.smtpPass || ""
+        })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        const now = new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+        showBanner("ok", `E-posta doğrudan iletildi · ${d.to} (${d.from}) · ${now}`);
+        upsertQuote("Gönderildi");
+      } else {
+        showBanner("err", d.error || "E-posta gönderilemedi.");
+      }
+    } catch (e) {
+      showBanner("err", "SMTP hatası: " + e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  $("btnCopyMsg").onclick = async () => {
+    try { await navigator.clipboard.writeText($("fMessage").value); } catch (_) {}
+    showBanner("ok", "Teklif metni panoya kopyalandı.");
+  };
+  $("btnPrintQuote").onclick = () => window.print();
+
+  // UPLOAD & NATIVE RUST + VISION PDF ANALYSIS
+  async function analyzeFile(file) {
+    $("dzTitle").textContent = `${file.name} okunuyor...`;
+    $("dzSub").textContent = "Antet, malzeme kodu, ham kütük ölçüleri ve ağırlık hesaplanıyor";
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const r = await fetch("/api/rfq-analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name, file_b64: reader.result })
+        });
+        const d = await r.json();
+        if (!d.ok) throw new Error(d.error || "Okuma hatası");
+
+        if (d.preview_png_b64) {
+          $("previewImg").src = d.preview_png_b64;
+          $("previewBar").classList.add("show");
+        }
+        if (d.customer) $("fCustomer").value = d.customer;
+        if (d.part_name) $("fPartName").value = d.part_name;
+        if (d.part_code) $("fPartCode").value = d.part_code;
+        if (d.qty) $("fQty").value = d.qty;
+        if (d.material_key && ALLOYS[d.material_key]) {
+          $("fMatKey").value = d.material_key;
+          $("fKgPrice").value = d.kg_price_tl || ALLOYS[d.material_key].priceKg;
+        }
+        if (d.shape === "cylindrical" || d.shape === "prismatic") $("fShape").value = d.shape;
+        if (d.dim_d_mm) $("fDimD").value = d.dim_d_mm;
+        if (d.dim_x_mm) $("fDimX").value = d.dim_x_mm;
+        if (d.dim_y_mm) $("fDimY").value = d.dim_y_mm;
+        if (d.dim_z_mm) $("fDimZ").value = d.dim_z_mm;
+        if (d.net_grams) { $("fGrams").value = d.net_grams; lastNetKgFromVision = d.net_grams / 1000; }
+        if (d.direct_mat_unit_tl) $("fDirectMat").value = d.direct_mat_unit_tl;
+        if (d.turn_min != null) $("fTurnMin").value = d.turn_min;
+        if (d.mill_min != null) $("fMillMin").value = d.mill_min;
+        if (d.edm_min != null) $("fEdmMin").value = d.edm_min;
+        if (d.setup_min != null) $("fSetupMin").value = d.setup_min;
+        if (d.tolerance) $("fTol").value = d.tolerance;
+        if (d.vision_verified) setPricingMode("billet"); else recalc();
+
+        lastEngineeringNote = d.engineering_comment || "";
+        const massTag = d.billet_kg ? `Ham Kütük: ${Number(d.billet_kg).toFixed(2)} kg · Net: ~${Number(d.net_kg || 0).toFixed(2)} kg — ` : "";
+        $("previewNote").textContent = massTag + lastEngineeringNote;
+        $("dzTitle").textContent = `${file.name} okundu`;
+        $("dzSub").textContent = `${d.material_label || ""} · ${d.tolerance || "ISO 2768-m"}`;
+
+        // Also query Rust LocalML memory
+        await applyMemoryPrediction(false);
+      } catch (err) {
+        $("dzTitle").textContent = `${file.name} yüklendi`;
+        $("dzSub").textContent = "Ölçüleri kontrol edip kaydedebilirsiniz (" + err.message + ")";
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  window.addEventListener("dragover", e => e.preventDefault(), false);
+  window.addEventListener("drop", e => e.preventDefault(), false);
+  const dz = $("dropzone"), fi = $("fileInp");
+  dz.onclick = (e) => { if (e.target !== fi) { fi.value = ""; fi.click(); } };
+  $("btnPickFile").onclick = (e) => { e.stopPropagation(); fi.value = ""; fi.click(); };
+  dz.ondragenter = dz.ondragover = (e) => { e.preventDefault(); e.stopPropagation(); dz.classList.add("drag"); };
+  dz.ondragleave = (e) => { e.preventDefault(); e.stopPropagation(); dz.classList.remove("drag"); };
+  dz.ondrop = (e) => {
+    e.preventDefault(); e.stopPropagation(); dz.classList.remove("drag");
+    const file = e.dataTransfer?.files?.[0];
+    if (file) analyzeFile(file);
+  };
+  fi.onchange = () => { if (fi.files?.[0]) analyzeFile(fi.files[0]); };
+
+  // RUST LOCAL SELF-LEARNING MEMORY
+  async function refreshMlStatus() {
+    try {
+      const r = await fetch("/api/ml/status");
+      const d = await r.json();
+      if (d.ok) {
+        $("mlStatusLabel").textContent = d.trained === 0
+          ? "Geçmiş Kayıt Hafızası · Henüz kayıt yok — onayladığınız teklifler yerel olarak öğrenilir"
+          : `Geçmiş Kayıt Hafızası · ${d.trained} parça öğrenildi · Güven %${d.confidence}`;
+      }
+    } catch (_) {}
+  }
+
+  async function applyMemoryPrediction(showAlert) {
+    const f = readForm();
+    try {
+      const r = await fetch("/api/ml/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ materialKey: f.materialKey, shape: f.shape, dimD: f.dimD, dimX: f.dimX, dimY: f.dimY, dimZ: f.dimZ, qty: f.qty })
+      });
+      const d = await r.json();
+      if (d.ok && d.trained > 0 && d.prediction) {
+        const p = d.prediction;
+        if (p.turnRate) $("fTurnRate").value = p.turnRate;
+        if (p.millRate) $("fMillRate").value = p.millRate;
+        if (p.marginPct) $("fMargin").value = p.marginPct;
+        if (p.kgPrice) $("fKgPrice").value = p.kgPrice;
+        if (showAlert) {
+          if (p.turnMin != null) $("fTurnMin").value = p.turnMin;
+          if (p.millMin != null) $("fMillMin").value = p.millMin;
+          if (p.directMatUnit) $("fDirectMat").value = p.directMatUnit;
+          showBanner("info", d.explanation);
+        }
+        recalc();
+      } else if (showAlert) {
+        showBanner("info", "Henüz hafızada kayıtlı teklif yok. İlk teklifinizi 'Kaydet & Hafızaya Al' ile ekleyin.");
+      }
+    } catch (_) {}
+  }
+  $("btnApplyMemory").onclick = () => applyMemoryPrediction(true);
+
+  // QUOTES CRUD + TRAIN RUST MEMORY
+  async function upsertQuote(statusText) {
+    const f = readForm();
+    const c = compute(f);
+    f.status = statusText || "Fiyatlandı";
+    f.grandTotal = c.grandTotal;
+    f.sellUnit = c.sellUnit;
+    const list = loadJson(K_QUOTES, []);
+    const idx = list.findIndex(x => x.id === f.id);
+    if (idx >= 0) list[idx] = f; else list.unshift(f);
+    saveJson(K_QUOTES, list);
+    activeQuoteId = f.id;
+    renderQuotes();
+
+    // Train Rust persistent memory
+    const volCm3 = f.shape === "cylindrical"
+      ? Math.PI * Math.pow(f.dimD / 20, 2) * (f.dimZ / 10)
+      : (f.dimX * f.dimY * f.dimZ) / 1000;
+    try {
+      await fetch("/api/ml/train", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: f.id, partName: f.partName, partCode: f.partCode, materialKey: f.materialKey,
+          shape: f.shape, volCm3: Number(volCm3.toFixed(2)), qty: f.qty,
+          kgPrice: f.kgPrice, directMatUnit: Number(c.matUnit.toFixed(2)), scrapPct: f.scrap,
+          turnMin: f.turnMin, turnRate: f.turnRate, millMin: f.millMin, millRate: f.millRate,
+          edmMin: f.edmMin, setupMin: f.setupMin, marginPct: f.margin, sellUnit: Number(c.sellUnit.toFixed(2))
+        })
+      });
+    } catch (_) {}
+    refreshMlStatus();
+  }
+
+  $("btnSaveQuote").onclick = async () => {
+    await upsertQuote("Fiyatlandı");
+    showBanner("ok", `Teklif (${activeQuoteId}) kaydedildi ve yerel fiyat hafızasına işlendi.`);
+  };
+  $("btnNewQuote").onclick = () => {
+    activeQuoteId = null;
+    $("fCustomer").value = ""; $("fContact").value = ""; $("fPartName").value = ""; $("fPartCode").value = "";
+    $("previewBar").classList.remove("show");
+    $("dzTitle").textContent = "Teknik resim PDF veya görsel yükleyin";
+    $("dzSub").textContent = "Antet, malzeme kodu, ham kütük ölçüsü, adet ve toleranslar otomatik okunur";
+    recalc();
+  };
+
+  function renderQuotes() {
+    const list = loadJson(K_QUOTES, []);
+    $("navQuoteCount").textContent = String(list.length);
+    const q = ($("quoteSearch").value || "").toLowerCase();
+    const rows = list.filter(x => `${x.id} ${x.customer} ${x.partName} ${x.partCode}`.toLowerCase().includes(q));
+    $("quotesTbody").innerHTML = rows.length ? rows.map(r => {
+      const cls = r.status === "Faturalandı" ? "done" : r.status === "Gönderildi" ? "sent" : r.status === "Fiyatlandı" ? "quoted" : "new";
+      return `<tr>
+        <td class="num"><strong>${r.id}</strong><br><span style="color:var(--muted);font-size:11px">${r.date || ""}</span></td>
+        <td><strong>${r.customer || "-"}</strong><br><span style="color:var(--muted);font-size:11px">${r.contact || ""}</span></td>
+        <td>${r.partName || "-"} <span style="color:var(--muted)">(${r.partCode || "-"})</span></td>
+        <td class="num">${r.qty}</td>
+        <td class="num"><strong>${fmt(r.grandTotal)} ₺</strong></td>
+        <td><span class="pill ${cls}">${r.status}</span></td>
+        <td class="no-print">
+          <button class="btn sm ghost" data-load="${r.id}">Aç</button>
+          <button class="btn sm ghost" data-inv="${r.id}">e-Fatura</button>
+          <button class="btn sm ghost" data-del="${r.id}" style="color:var(--err)">Sil</button>
+        </td>
+      </tr>`;
+    }).join("") : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px;">Henüz kayıtlı teklif bulunmuyor.</td></tr>`;
+
+    $("quotesTbody").querySelectorAll("[data-load]").forEach(b => b.onclick = () => {
+      const item = loadJson(K_QUOTES, []).find(x => x.id === b.dataset.load);
+      if (!item) return;
+      activeQuoteId = item.id;
+      $("fCustomer").value = item.customer || ""; $("fContact").value = item.contact || "";
+      $("fPartName").value = item.partName || ""; $("fPartCode").value = item.partCode || "";
+      $("fQty").value = item.qty || 1; $("fTol").value = item.tol || "";
+      $("fMatKey").value = item.materialKey || "ss304"; $("fKgPrice").value = item.kgPrice || 245;
+      $("fShape").value = item.shape || "prismatic";
+      $("fDimD").value = item.dimD || 60; $("fDimX").value = item.dimX || 56; $("fDimY").value = item.dimY || 75; $("fDimZ").value = item.dimZ || 182.5;
+      $("fTurnMin").value = item.turnMin || 0; $("fMillMin").value = item.millMin || 0;
+      $("fPhone").value = item.phone || ""; $("fEmail").value = item.email || "";
+      setPricingMode(item.pricingMode || "billet");
+    });
+    $("quotesTbody").querySelectorAll("[data-inv]").forEach(b => b.onclick = () => {
+      const item = loadJson(K_QUOTES, []).find(x => x.id === b.dataset.inv);
+      if (item) transferToInvoice(item, compute(item));
+    });
+    $("quotesTbody").querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+      saveJson(K_QUOTES, loadJson(K_QUOTES, []).filter(x => x.id !== b.dataset.del));
+      renderQuotes();
+    });
+  }
+
+  $("btnExportCsv").onclick = () => {
+    const rows = [["Kod", "Tarih", "Musteri", "Parca", "ParcaKodu", "Adet", "ToplamTL", "Durum"]];
+    loadJson(K_QUOTES, []).forEach(r => rows.push([r.id, r.date, r.customer, r.partName, r.partCode, r.qty, Number(r.grandTotal || 0).toFixed(2), r.status]));
+    const csv = "\uFEFF" + rows.map(r => r.map(x => `"${String(x ?? "").replace(/"/g, '""')}"`).join(";")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = "BahaWorks_Teklifler.csv"; a.click();
+  };
+
+  // TRANSFER TO GİB e-FATURA
+  function uuid4() {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  }
+  let currentEttn = uuid4();
+
+  function transferToInvoice(f, c) {
+    currentEttn = uuid4();
+    const list = loadJson(K_INVOICES, []);
+    $("invNo").value = "BHW" + new Date().getFullYear() + String(list.length + 1).padStart(9, "0");
+    $("invDate").value = new Date().toISOString().slice(0, 10);
+    $("invBuyer").value = f.customer || "";
+    $("invItemName").value = `${f.partName} (${f.partCode}) — Malzeme & CNC Talaşlı İmalat`;
+    $("invQty").value = f.qty;
+    $("invUnitPrice").value = Number(c.sellUnit).toFixed(2);
+    recalcInvoice();
+    document.querySelector('.nav-item[data-view="invoice"]').click();
+  }
+
+  $("btnToInvoice").onclick = () => transferToInvoice(readForm(), compute(readForm()));
+
+  function recalcInvoice() {
+    const qty = Math.max(1, Number($("invQty").value) || 1);
+    const unit = Number($("invUnitPrice").value) || 0;
+    const vatRate = Number($("invVatRate").value) || 0;
+    const wh = Number($("invWithhold").value) || 0;
+    const sub = qty * unit;
+    const vat = sub * (vatRate / 100);
+    const whAmt = vat * wh;
+    const payable = sub + vat - whAmt;
+    $("invEttnLabel").textContent = "ETTN: " + currentEttn;
+    $("invSummaryBox").innerHTML = `
+      <div class="br-row"><span>Mal / Hizmet Ara Toplamı (${qty} adet × ${fmt(unit)} ₺)</span><strong>${fmt(sub)} ₺</strong></div>
+      <div class="br-row"><span>Hesaplanan KDV (%${vatRate})</span><strong>${fmt(vat)} ₺</strong></div>
+      ${wh > 0 ? `<div class="br-row"><span>KDV Tevkifatı (-${Math.round(wh*10)}/10)</span><strong>-${fmt(whAmt)} ₺</strong></div>` : ""}
+      <div class="br-row total"><span>Ödenecek Tutar</span><span>${fmt(payable)} ₺</span></div>
+    `;
+    return { qty, unit, vatRate, wh, sub, vat, whAmt, payable };
+  }
+
+  function buildUblXml() {
+    const s = getSettings();
+    const t = recalcInvoice();
+    const esc = (x) => String(x || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
+  <cbc:CustomizationID>TR1.2</cbc:CustomizationID>
+  <cbc:ProfileID>${esc($("invScenario").value)}</cbc:ProfileID>
+  <cbc:ID>${esc($("invNo").value)}</cbc:ID>
+  <cbc:UUID>${currentEttn}</cbc:UUID>
+  <cbc:IssueDate>${esc($("invDate").value)}</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>${t.wh > 0 ? "TEVKIFAT" : "SATIS"}</cbc:InvoiceTypeCode>
+  <cbc:DocumentCurrencyCode>TRY</cbc:DocumentCurrencyCode>
+  <cac:AccountingSupplierParty><cac:Party><cac:PartyIdentification><cbc:ID schemeID="VKN">${esc(s.vkn)}</cbc:ID></cac:PartyIdentification><cac:PartyName><cbc:Name>${esc(s.company)}</cbc:Name></cac:PartyName></cac:Party></cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty><cac:Party><cac:PartyIdentification><cbc:ID schemeID="VKN">${esc($("invVkn").value)}</cbc:ID></cac:PartyIdentification><cac:PartyName><cbc:Name>${esc($("invBuyer").value)}</cbc:Name></cac:PartyName></cac:Party></cac:AccountingCustomerParty>
+  <cac:TaxTotal><cbc:TaxAmount currencyID="TRY">${t.vat.toFixed(2)}</cbc:TaxAmount></cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="TRY">${t.sub.toFixed(2)}</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="TRY">${t.sub.toFixed(2)}</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="TRY">${(t.sub + t.vat).toFixed(2)}</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="TRY">${t.payable.toFixed(2)}</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">${t.qty}</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="TRY">${t.sub.toFixed(2)}</cbc:LineExtensionAmount>
+    <cac:Item><cbc:Name>${esc($("invItemName").value)}</cbc:Name></cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="TRY">${t.unit.toFixed(2)}</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+</Invoice>`;
+  }
+
+  $("btnInvXml").onclick = () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([buildUblXml()], { type: "application/xml;charset=utf-8" }));
+    a.download = `${$("invNo").value}_UBL_TR.xml`; a.click();
+  };
+  $("btnInvErp").onclick = () => {
+    const t = recalcInvoice();
+    const csv = "\uFEFF" + `FaturaNo;Tarih;Alıcı;VKN;Senaryo;Kalem;Adet;Matrah;KDV;Toplam\n"${$("invNo").value}";"${$("invDate").value}";"${$("invBuyer").value}";"${$("invVkn").value}";"${$("invScenario").value}";"${$("invItemName").value}";${t.qty};${t.sub.toFixed(2)};${t.vat.toFixed(2)};${t.payable.toFixed(2)}`;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = `${$("invNo").value}_Logo_Mikro.csv`; a.click();
+  };
+  $("btnInvSave").onclick = () => {
+    const t = recalcInvoice();
+    const list = loadJson(K_INVOICES, []);
+    list.unshift({ no: $("invNo").value, date: $("invDate").value, buyer: $("invBuyer").value, total: t.payable, scenario: $("invScenario").value, ettn: currentEttn });
+    saveJson(K_INVOICES, list);
+    renderInvoices();
+    $("invCheckBanner").textContent = `Fatura (${$("invNo").value}) kaydedildi. UBL-TR 1.2 XML ile GİB portalına veya entegratöre doğrudan yükleyebilirsiniz.`;
+  };
+
+  function renderInvoices() {
+    const list = loadJson(K_INVOICES, []);
+    $("navInvCount").textContent = String(list.length);
+    $("invTbody").innerHTML = list.length ? list.map(x => `
+      <tr><td class="num"><strong>${x.no}</strong></td><td>${x.buyer}</td><td class="num"><strong>${fmt(x.total)} ₺</strong></td><td><span class="pill done">${x.scenario}</span></td></tr>
+    `).join("") : `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px;">Henüz kesilmiş fatura yok.</td></tr>`;
+  }
+
+  // SETTINGS
+  function loadSettingsUI() {
+    const s = getSettings();
+    $("sCompany").value = s.company || ""; $("sVkn").value = s.vkn || "";
+    $("sTaxOffice").value = s.taxOffice || ""; $("sManager").value = s.manager || "";
+    $("sPhone").value = s.phone || ""; $("sIban").value = s.iban || "";
+    $("sWaPhoneId").value = s.waPhoneId || ""; $("sWaApiKey").value = s.waApiKey || "";
+    $("sSmtpHost").value = s.smtpHost || ""; $("sSmtpPort").value = s.smtpPort || 587;
+    $("sSmtpUser").value = s.smtpUser || ""; $("sSmtpPass").value = s.smtpPass || "";
+  }
+  $("btnSaveSettings").onclick = () => {
+    saveJson(K_SETTINGS, {
+      company: $("sCompany").value.trim(), vkn: $("sVkn").value.trim(),
+      taxOffice: $("sTaxOffice").value.trim(), manager: $("sManager").value.trim(),
+      phone: $("sPhone").value.trim(), iban: $("sIban").value.trim(),
+      waPhoneId: $("sWaPhoneId").value.trim(), waApiKey: $("sWaApiKey").value.trim(),
+      smtpHost: $("sSmtpHost").value.trim(), smtpPort: Number($("sSmtpPort").value) || 587,
+      smtpUser: $("sSmtpUser").value.trim(), smtpPass: $("sSmtpPass").value.trim(),
+    });
+    recalc();
+    alert("Firma ve bağlantı ayarları kaydedildi.");
+  };
+  $("btnBackupJson").onclick = () => {
+    const dump = { exportedAt: new Date().toISOString(), settings: getSettings(), quotes: loadJson(K_QUOTES, []), invoices: loadJson(K_INVOICES, []) };
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(dump, null, 2)], { type: "application/json" }));
+    a.download = "BahaWorks_Yedek.json"; a.click();
+  };
+
+  // INPUT LISTENERS
+  ["fCustomer","fContact","fPartName","fPartCode","fQty","fTol","fDirectMat","fGrams","fKgPrice","fDimD","fDimX","fDimY","fDimZ","fScrap","fTurnMin","fTurnRate","fMillMin","fMillRate","fEdmMin","fSetupMin","fToolPct","fOutside","fMargin","fPhone","fEmail","fLeadDays"].forEach(id => {
+    $(id).addEventListener("input", recalc);
+  });
+  $("fMatKey").onchange = () => {
+    const a = ALLOYS[$("fMatKey").value];
+    if (a) $("fKgPrice").value = a.priceKg;
+    recalc();
+  };
+  $("fShape").onchange = () => setPricingMode(pricingMode);
+  $("quoteSearch").oninput = renderQuotes;
+  ["invNo","invDate","invBuyer","invVkn","invTaxOffice","invScenario","invItemName","invQty","invUnitPrice","invVatRate","invWithhold","invNote"].forEach(id => {
+    $(id).addEventListener("input", recalcInvoice);
+    $(id).addEventListener("change", recalcInvoice);
+  });
+
+  // HEALTH CHECK
+  async function checkHealth() {
+    try {
+      const r = await fetch("/api/health");
+      const d = await r.json();
+      if (d.ok) {
+        $("dotEngine").classList.add("on"); $("lblEngine").textContent = "Çalışıyor";
+        if (d.whatsapp_api_ready) { $("dotWa").classList.add("on"); $("lblWa").textContent = "Bağlı"; }
+        else { $("lblWa").textContent = "Ayar Bekliyor"; }
+        if (d.smtp_ready) { $("dotSmtp").classList.add("on"); $("lblSmtp").textContent = "Bağlı"; }
+        else { $("lblSmtp").textContent = "Ayar Bekliyor"; }
+      }
+    } catch (_) {}
+  }
+
+  // INIT
+  $("invDate").value = new Date().toISOString().slice(0, 10);
+  loadSettingsUI();
+  setPricingMode("billet");
+  setChannel("whatsapp");
+  renderQuotes();
+  renderInvoices();
+  recalcInvoice();
+  checkHealth();
+  refreshMlStatus();
+})();
+</script>
+</body>
+</html>
