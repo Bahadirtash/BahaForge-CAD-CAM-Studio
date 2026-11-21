@@ -328,7 +328,7 @@ fn handle_direct_whatsapp_send(body: &str) -> String {
     };
 
     let payload = format!(
-        r#"{{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{{"name":"send_whatsapp_message","arguments":{{"phone_number_id":"{}","to":"{}","type":"text","body":"{}"}}}}}}"#,
+        r#"{{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{{"name":"send_whatsapp_message","arguments":{{"phone_number_id":"{}","to":"{}","text":"{}"}}}}}}"#,
         json_escape(&phone_id),
         json_escape(&to_clean),
         json_escape(&text)
