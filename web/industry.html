@@ -352,17 +352,10 @@
         <span class="nav-count num" id="navQuoteCount">0</span>
       </button>
 
-      <button class="nav-item" data-view="cad">
+      <button class="nav-item" data-view="cadcam">
         <span class="nav-left">
           <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-          3D Model (STEP)
-        </span>
-      </button>
-
-      <button class="nav-item" data-view="cam">
-        <span class="nav-left">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          CNC Takım Yolu
+          CNC Takım Yolu &amp; 3D
         </span>
       </button>
 
@@ -519,13 +512,20 @@
           </div>
           <div class="formula-bar num" id="materialFormulaBar"></div>
 
-          <div class="section-label">İşçilik, Tezgâh ve Kâr Marjı</div>
+          <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <span>İşçilik, Tezgâh ve Kâr Marjı</span>
+            <div class="seg" id="opSeg" style="padding:2px;">
+              <button type="button" class="seg-btn" id="opTurnBtn" data-op="turn">CNC Torna</button>
+              <button type="button" class="seg-btn active" id="opMillBtn" data-op="mill">CNC Freze</button>
+              <button type="button" class="seg-btn" id="opEdmBtn" data-op="edm">Tel Erozyon</button>
+            </div>
+          </div>
           <div class="form-3">
-            <div class="field"><label>CNC Torna (dk/ad)</label><input id="fTurnMin" type="number" value="20" class="num" /></div>
-            <div class="field"><label>Torna Saat (₺/sa)</label><input id="fTurnRate" type="number" step="50" value="1650" class="num" /></div>
-            <div class="field"><label>CNC Freze (dk/ad)</label><input id="fMillMin" type="number" value="75" class="num" /></div>
-            <div class="field"><label>Freze Saat (₺/sa)</label><input id="fMillRate" type="number" step="50" value="2100" class="num" /></div>
-            <div class="field"><label>Tel Erozyon (dk/ad)</label><input id="fEdmMin" type="number" value="0" class="num" /></div>
+            <div class="field" id="wTurnMin" style="opacity:0.45"><label>CNC Torna (dk/ad)</label><input id="fTurnMin" type="number" value="0" class="num" disabled /></div>
+            <div class="field" id="wTurnRate" style="opacity:0.45"><label>Torna Saat (₺/sa)</label><input id="fTurnRate" type="number" step="50" value="1650" class="num" disabled /></div>
+            <div class="field" id="wMillMin"><label>CNC Freze (dk/ad)</label><input id="fMillMin" type="number" value="85" class="num" /></div>
+            <div class="field" id="wMillRate"><label>Freze Saat (₺/sa)</label><input id="fMillRate" type="number" step="50" value="2100" class="num" /></div>
+            <div class="field" id="wEdmMin" style="opacity:0.45"><label>Tel Erozyon (dk/ad)</label><input id="fEdmMin" type="number" value="0" class="num" disabled /></div>
             <div class="field"><label>Bağlama / Setup (dk)</label><input id="fSetupMin" type="number" value="90" class="num" /></div>
             <div class="field"><label>Takım Aşınma (%)</label><input id="fToolPct" type="number" value="10" class="num" /></div>
             <div class="field"><label>Dış Fason / Kaplama (₺)</label><input id="fOutside" type="number" step="10" value="0" class="num" /></div>
@@ -612,14 +612,20 @@
       </div>
     </section>
 
-    <!-- 2. 3D MODEL (STEP) -->
-    <section class="view frame-view" id="view-cad">
-      <iframe src="bahacad.html" title="3D Model STEP"></iframe>
-    </section>
-
-    <!-- 3. CNC TAKIM YOLU (CAM) -->
-    <section class="view frame-view" id="view-cam">
-      <iframe src="bahacam.html" title="CNC Takım Yolu"></iframe>
+    <!-- 2. UNIFIED CNC TAKIM YOLU & 3D STEP (OPENCASCADE + VOLUMILL) -->
+    <section class="view frame-view" id="view-cadcam" style="flex-direction:column;">
+      <div style="height:48px;min-height:48px;padding:0 18px;background:rgba(255,255,255,0.86);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div style="font-size:13.5px;font-weight:700;color:var(--ink);">CNC Takım Yolu &amp; 3D B-Rep Stüdyosu <span style="font-weight:500;color:var(--muted);font-size:12px;">· OpenCascade OCCT 8.0 + VoluMill</span></div>
+        <div class="seg" id="cadcamSubSeg">
+          <button type="button" class="seg-btn active" data-cc="cad">3D STEP &amp; PDF→STEP (OpenCascade)</button>
+          <button type="button" class="seg-btn" data-cc="cam">CNC Takım Yolu (VoluMill)</button>
+          <button type="button" class="seg-btn" data-cc="split">Yan Yana CAD + CAM</button>
+        </div>
+      </div>
+      <div id="ccWrap" style="flex:1;display:flex;position:relative;overflow:hidden;height:calc(100vh - 48px);">
+        <iframe id="ccCadFrame" src="bahacad.html" title="OpenCascade 3D STEP" style="width:100%;height:100%;border:0;display:block;"></iframe>
+        <iframe id="ccCamFrame" src="bahacam.html" title="BahaCAM VoluMill" style="width:100%;height:100%;border:0;display:none;"></iframe>
+      </div>
     </section>
 
     <!-- 4. GİB e-FATURA & MUHASEBE -->
@@ -842,7 +848,25 @@
 
   let pricingMode = "billet";
   let sendChannel = "whatsapp";
+  let opEnabled = { turn: false, mill: true, edm: false };
   let activeQuoteId = null;
+
+  function syncOpToggles() {
+    $("opTurnBtn").classList.toggle("active", opEnabled.turn);
+    $("opMillBtn").classList.toggle("active", opEnabled.mill);
+    $("opEdmBtn").classList.toggle("active", opEnabled.edm);
+    $("fTurnMin").disabled = !opEnabled.turn; $("fTurnRate").disabled = !opEnabled.turn;
+    $("wTurnMin").style.opacity = opEnabled.turn ? "1" : "0.45"; $("wTurnRate").style.opacity = opEnabled.turn ? "1" : "0.45";
+    if (!opEnabled.turn) $("fTurnMin").value = 0;
+
+    $("fMillMin").disabled = !opEnabled.mill; $("fMillRate").disabled = !opEnabled.mill;
+    $("wMillMin").style.opacity = opEnabled.mill ? "1" : "0.45"; $("wMillRate").style.opacity = opEnabled.mill ? "1" : "0.45";
+    if (!opEnabled.mill) $("fMillMin").value = 0;
+
+    $("fEdmMin").disabled = !opEnabled.edm;
+    $("wEdmMin").style.opacity = opEnabled.edm ? "1" : "0.45";
+    if (!opEnabled.edm) $("fEdmMin").value = 0;
+  }
   let lastNetKgFromVision = 2.31;
   let lastEngineeringNote = "";
 
@@ -873,8 +897,34 @@
       document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
       document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
       btn.classList.add("active");
-      $("view-" + btn.dataset.view).classList.add("active");
+      const target = $("view-" + btn.dataset.view);
+      target.classList.add("active");
+      if (btn.dataset.view === "cadcam") target.style.display = "flex";
+      else $("view-cadcam").style.display = "none";
     };
+  });
+
+  // UNIFIED CAD/CAM SUB-SWITCHER (OpenCascade 3D STEP <-> VoluMill CNC <-> Split)
+  function setCadCamSub(mode) {
+    document.querySelectorAll("#cadcamSubSeg .seg-btn").forEach(b => b.classList.toggle("active", b.dataset.cc === mode));
+    const cadF = $("ccCadFrame"), camF = $("ccCamFrame");
+    if (mode === "split") {
+      cadF.style.display = "block"; cadF.style.width = "50%"; cadF.style.borderRight = "1px solid var(--border)";
+      camF.style.display = "block"; camF.style.width = "50%";
+    } else if (mode === "cam") {
+      cadF.style.display = "none";
+      camF.style.display = "block"; camF.style.width = "100%";
+    } else {
+      cadF.style.display = "block"; cadF.style.width = "100%"; cadF.style.borderRight = "0";
+      camF.style.display = "none";
+    }
+  }
+  document.querySelectorAll("#cadcamSubSeg .seg-btn").forEach(b => b.onclick = () => setCadCamSub(b.dataset.cc));
+  window.addEventListener("message", (ev) => {
+    if (ev.data && ev.data.type === "BAHACAD_TO_BAHACAM_STL") {
+      setCadCamSub("cam");
+      if ($("ccCamFrame").contentWindow) $("ccCamFrame").contentWindow.postMessage(ev.data, "*");
+    }
   });
 
   // PRICING MODE SEGMENT
@@ -933,11 +983,11 @@
       dimZ: Number($("fDimZ").value) || 0,
       scrap: Number($("fScrap").value) || 0,
       stockAllow: Math.max(0, Number($("fStockAllow").value) || 0),
-      turnMin: Number($("fTurnMin").value) || 0,
+      turnMin: opEnabled.turn ? (Number($("fTurnMin").value) || 0) : 0,
       turnRate: Number($("fTurnRate").value) || 0,
-      millMin: Number($("fMillMin").value) || 0,
+      millMin: opEnabled.mill ? (Number($("fMillMin").value) || 0) : 0,
       millRate: Number($("fMillRate").value) || 0,
-      edmMin: Number($("fEdmMin").value) || 0,
+      edmMin: opEnabled.edm ? (Number($("fEdmMin").value) || 0) : 0,
       setupMin: Number($("fSetupMin").value) || 0,
       toolPct: Number($("fToolPct").value) || 0,
       outside: Number($("fOutside").value) || 0,
@@ -985,10 +1035,14 @@
         : `Finiş ${f.dimX} × ${f.dimY} × ${f.dimZ} mm${stockTag} · Özkütle ${density.toFixed(2)} g/cm³`;
     }
 
-    const turnU = (f.turnMin / 60) * f.turnRate;
-    const millU = (f.millMin / 60) * f.millRate;
-    const edmU = (f.edmMin / 60) * 1950;
-    const setupRate = Math.max(f.millRate, f.turnRate, 1650);
+    const turnU = opEnabled.turn ? (f.turnMin / 60) * f.turnRate : 0;
+    const millU = opEnabled.mill ? (f.millMin / 60) * f.millRate : 0;
+    const edmU = opEnabled.edm ? (f.edmMin / 60) * 1950 : 0;
+    const activeRates = [];
+    if (opEnabled.mill) activeRates.push(f.millRate);
+    if (opEnabled.turn) activeRates.push(f.turnRate);
+    if (opEnabled.edm) activeRates.push(1950);
+    const setupRate = activeRates.length ? Math.max(...activeRates) : 1850;
     const setupU = ((f.setupMin / 60) * setupRate) / f.qty;
     const rawMach = turnU + millU + edmU + setupU;
     const toolU = rawMach * (f.toolPct / 100);
@@ -1029,9 +1083,14 @@
         ? `<strong>Fason İşçilik Modu:</strong> Malzeme müşteri tarafından sağlanır (0,00 ₺). Yalnızca CNC tezgâh, bağlama ve işçilik fiyatlandırılır.`
         : `<strong>Malzeme Özeti:</strong> ${c.alloy.name} (${c.density.toFixed(2)} g/cm³) · Parça başı <strong>${fmt(c.matUnit)} ₺/adet</strong> · ${f.qty} adet toplam <strong>${fmt(c.matTotal)} ₺</strong>`;
 
-    $("breakdownBox").innerHTML = `
+        const opLabels = [];
+        if (opEnabled.turn && f.turnMin > 0) opLabels.push(`CNC Torna ${f.turnMin} dk`);
+        if (opEnabled.mill && f.millMin > 0) opLabels.push(`CNC Freze ${f.millMin} dk`);
+        if (opEnabled.edm && f.edmMin > 0) opLabels.push(`Tel Erozyon ${f.edmMin} dk`);
+        const opStr = opLabels.length ? opLabels.join(" + ") : "CNC İşleme";
+        $("breakdownBox").innerHTML = `
       <div class="br-row"><span>Malzeme · ${c.alloy.name} (${c.specLabel})</span><strong>${fmt(c.matTotal)} ₺</strong></div>
-      <div class="br-row"><span>CNC İşçilik &amp; Setup (${f.qty} adet · ${f.turnMin + f.millMin + f.edmMin} dk/ad)</span><strong>${fmt(c.laborTotal)} ₺</strong></div>
+      <div class="br-row"><span>İşçilik · ${opStr} + Setup (${f.qty} adet)</span><strong>${fmt(c.laborTotal)} ₺</strong></div>
       <div class="br-row"><span>Birim Satış Fiyatı (KDV Hariç)</span><strong>${fmt(c.sellUnit)} ₺ / adet</strong></div>
       <div class="br-row"><span>Ara Toplam + %20 KDV (${fmt(c.vat)} ₺)</span><strong>${fmt(c.subTotal)} ₺</strong></div>
       <div class="br-row total"><span>Genel Toplam</span><span>${fmt(c.grandTotal)} ₺</span></div>
@@ -1304,9 +1363,16 @@ ${s.phone}`;
         if (d.dim_z_mm) $("fDimZ").value = d.dim_z_mm;
         if (d.net_grams) { $("fGrams").value = d.net_grams; lastNetKgFromVision = d.net_grams / 1000; }
         if (d.direct_mat_unit_tl) $("fDirectMat").value = d.direct_mat_unit_tl;
-        if (d.turn_min != null) $("fTurnMin").value = d.turn_min;
-        if (d.mill_min != null) $("fMillMin").value = d.mill_min;
-        if (d.edm_min != null) $("fEdmMin").value = d.edm_min;
+        const tMin = Number(d.turn_min) || 0;
+        const mMin = Number(d.mill_min) || 0;
+        const eMin = Number(d.edm_min) || 0;
+        opEnabled.turn = d.shape === "cylindrical" && tMin > 0;
+        opEnabled.mill = mMin > 0 || !opEnabled.turn;
+        opEnabled.edm = eMin > 0;
+        syncOpToggles();
+        $("fTurnMin").value = opEnabled.turn ? tMin : 0;
+        $("fMillMin").value = opEnabled.mill ? mMin : 0;
+        $("fEdmMin").value = opEnabled.edm ? eMin : 0;
         if (d.setup_min != null) $("fSetupMin").value = d.setup_min;
         if (d.tolerance) $("fTol").value = d.tolerance;
         if (d.vision_verified) setPricingMode("billet"); else recalc();
@@ -1688,6 +1754,11 @@ ${s.phone}`;
     alert("Malzeme özkütle ve fiyat veritabanı kaydedildi.");
   };
 
+  // OPERATION TOGGLE PILLS (TORNA / FREZE / TEL EROZYON)
+  $("opTurnBtn").onclick = () => { opEnabled.turn = !opEnabled.turn; if (opEnabled.turn && Number($("fTurnMin").value) === 0) $("fTurnMin").value = 15; syncOpToggles(); recalc(); };
+  $("opMillBtn").onclick = () => { opEnabled.mill = !opEnabled.mill; if (opEnabled.mill && Number($("fMillMin").value) === 0) $("fMillMin").value = 30; syncOpToggles(); recalc(); };
+  $("opEdmBtn").onclick = () => { opEnabled.edm = !opEnabled.edm; if (opEnabled.edm && Number($("fEdmMin").value) === 0) $("fEdmMin").value = 20; syncOpToggles(); recalc(); };
+
   // INPUT LISTENERS
   ["fCustomer","fContact","fPartName","fPartCode","fQty","fTol","fDensity","fDirectMat","fGrams","fKgPrice","fDimD","fDimX","fDimY","fDimZ","fScrap","fStockAllow","fTurnMin","fTurnRate","fMillMin","fMillRate","fEdmMin","fSetupMin","fToolPct","fOutside","fMargin","fPhone","fEmail","fLeadDays"].forEach(id => {
     $(id).addEventListener("input", recalc);
@@ -1721,6 +1792,7 @@ ${s.phone}`;
 
   // INIT
   populateAlloySelectAndTable();
+  syncOpToggles();
   $("invDate").value = new Date().toISOString().slice(0, 10);
   loadSettingsUI();
   setPricingMode("billet");

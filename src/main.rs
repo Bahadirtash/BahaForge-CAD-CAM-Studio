@@ -191,8 +191,12 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
                 let json = handle_rfq_analyze(&body_str);
                 write_json(&mut stream, 200, &json)
             }
-            "/api/pdf2step" | "/api/refine-step" => {
-                let json = handle_rust_pdf2step(&body_str);
+            "/api/pdf2step" => {
+                let json = handle_rust_pdf2step(&body_str, false);
+                write_json(&mut stream, 200, &json)
+            }
+            "/api/refine-step" => {
+                let json = handle_rust_pdf2step(&body_str, true);
                 write_json(&mut stream, 200, &json)
             }
             "/api/rfq-calc" => {
@@ -768,11 +772,14 @@ fn analyze_drawing_with_vision_rust(filename: &str, png_bytes: &[u8]) -> Option<
         "Sen Türkiye'de havacılık, savunma ve makine sanayisinde çalışan 25 yıllık kıdemli bir CNC Talaşlı İmalat Teklif ve Maliyet Mühendisisin. \
         Bu 2D teknik resmi (özellikle sağ alttaki ANTET / TITLE BLOCK kutusunu, 'Açıklama / Ham Ölçü' satırını, 'Malzeme' satırını, 'Parça Adı', 'Parça Kodu', firma adını ve varsa üzerine yazılmış '2 ADET' gibi miktar notlarını) BÜYÜK DİKKATLE OKU! \
         Malzeme eşleştirme kuralı: X5CrNi18-10 veya 1.4301 -> ss304; 1.4404 veya 316 -> ss316; 42CrMo4 veya 4140 -> steel4140; St37 veya S235 -> st37; 7075 -> al7075; 6061 -> al6061; Ti-6Al-4V -> ti64; MS58/Pirinç -> brass; POM/Delrin -> pom. \
-        Antette '56X75X182.5' veya '17X30X110' gibi ham kütük ölçüsü yazıyorsa BİREBİR o 3 ölçüyü dim_x_mm, dim_y_mm, dim_z_mm olarak ver ve shape='prismatic' yap! Döner parça (mil/flanş) ise shape='cylindrical' ve dim_d_mm (dış çap), dim_z_mm (toplam boy/kalınlık) ver. \
+        Antette '56X75X182.5' veya '17X30X110' gibi ham kütük ölçüsü yazıyorsa BİREBİR o 3 ölçüyü dim_x_mm, dim_y_mm, dim_z_mm olarak ver ve shape='prismatic' yap! Döner parça (mil/flanş/burç/pim) ise shape='cylindrical' ve dim_d_mm (dış çap), dim_z_mm (toplam boy/kalınlık) ver. \
+        KRİTİK TEZGÂH KURALI (TORNA vs FREZE AYRIMI): \
+        - Prizmatik parçalarda (krank kolu, lama, braket, blok, plaka, gövde, çatal) delik, H7 bara veya radyüs bulunması o parçayı ASLA TORNA İŞİ YAPMAZ! Prizmatik parçalardaki tüm delik/bara/rayba/cep işlemleri CNC FREZEDE yapılır — bu yüzden prizmatik parçalarda turn_min KESİNLİKLE 0 (SIFIR) olmalıdır! \
+        - CNC Torna (turn_min > 0) YALNIZCA aynaya bağlanabilen eksenel dönel simetrik parçalarda (mil, burç, flanş, pim, kaplin, kasnak, somun — shape='cylindrical') verilir! \
         fill_factor: işlenmiş parçanın ham kütüğe doluluk oranı (ör: derin çatal/delikli krank kolu için 0.38, lama için 0.65, dolu flanş için 0.55). \
         Dosya adı: {}. \
         SADECE saf JSON döndür (markdown veya başka metin yazma): \
-        {{\"customer\":\"<antetteki firma adı>\",\"part_name\":\"<antetteki parça adı>\",\"part_code\":\"<antetteki parça kodu>\",\"qty\":<çizimde adet yazıyorsa o sayı yoksa 10>,\"material_key\":\"<al7075|al6061|st37|steel4140|ss304|ss316|ti64|brass|pom>\",\"material_label\":\"<antetteki tam malzeme kodu>\",\"shape\":\"<prismatic|cylindrical>\",\"dim_d_mm\":<sayı>,\"dim_x_mm\":<sayı>,\"dim_y_mm\":<sayı>,\"dim_z_mm\":<sayı>,\"fill_factor\":<0.25-0.95 arası sayı>,\"tolerance\":\"<ör: ISO 2768-fH-E • Ø15 H7 • Ø20 H7>\",\"turn_min\":<parça başı CNC torna dk>,\"mill_min\":<parça başı 3/4/5 eksen CNC freze dk>,\"edm_min\":<tel erozyon/taşlama dk>,\"setup_min\":<toplam bağlama/programlama dk>,\"difficulty\":\"<Standart|Hassas|Havacılık-Savunma>\",\"engineering_comment\":\"<3 cümle Türkçe mühendislik ve fiyat analizi: antetten okunan ham kütük ölçüsü, malzeme, kritik H7/toleranslar ve operasyon tavsiyesi>\"}}",
+        {{\"customer\":\"<antetteki firma adı>\",\"part_name\":\"<antetteki parça adı>\",\"part_code\":\"<antetteki parça kodu>\",\"qty\":<çizimde adet yazıyorsa o sayı yoksa 10>,\"material_key\":\"<al7075|al6061|al5083|st37|ck45|d2_2379|steel4140|ss304|ss316|ti64|brass|copper|pom|pa6>\",\"material_label\":\"<antetteki tam malzeme kodu>\",\"shape\":\"<prismatic|cylindrical>\",\"dim_d_mm\":<sayı>,\"dim_x_mm\":<sayı>,\"dim_y_mm\":<sayı>,\"dim_z_mm\":<sayı>,\"fill_factor\":<0.25-0.95 arası sayı>,\"tolerance\":\"<ör: ISO 2768-fH-E • Ø15 H7 • Ø20 H7>\",\"turn_min\":<YALNIZCA dönel torna parçasıysa dk, prizmatik freze parçasında KESİNLİKLE 0>,\"mill_min\":<parça başı 3/4/5 eksen CNC freze dk>,\"edm_min\":<tel erozyon/taşlama dk>,\"setup_min\":<toplam bağlama/programlama dk>,\"difficulty\":\"<Standart|Hassas|Havacılık-Savunma>\",\"engineering_comment\":\"<3 cümle Türkçe mühendislik ve fiyat analizi: antetten okunan ham kütük ölçüsü, malzeme, neden sadece freze veya torna seçildiği ve kritik tolerans tavsiyesi>\"}}",
         filename
     );
 
@@ -842,7 +849,9 @@ fn analyze_drawing_with_vision_rust(filename: &str, png_bytes: &[u8]) -> Option<
     let dim_z = extract_json_num(inner, "dim_z_mm", 20.0).max(2.0);
     let fill = extract_json_num(inner, "fill_factor", 0.50).clamp(0.18, 0.95);
     let qty = extract_json_num(inner, "qty", 10.0).round().max(1.0) as i64;
-    let turn_min = extract_json_num(inner, "turn_min", 0.0).round().max(0.0) as i64;
+    let raw_turn_min = extract_json_num(inner, "turn_min", 0.0).round().max(0.0) as i64;
+    // Hard CNC shop-floor guard: prismatic milling parts (crank arms, plates, bars, brackets, blocks) NEVER get lathe turning cost!
+    let turn_min = if shape == "prismatic" { 0 } else { raw_turn_min };
     let mill_min = extract_json_num(inner, "mill_min", 25.0).round().max(0.0) as i64;
     let edm_min = extract_json_num(inner, "edm_min", 0.0).round().max(0.0) as i64;
     let setup_min = extract_json_num(inner, "setup_min", 45.0).round().max(10.0) as i64;
@@ -1203,8 +1212,47 @@ fn handle_rfq_calc(body: &str) -> String {
     )
 }
 
-/// Pure-Rust ISO-10303-21 AP214 STEP + ASCII STL generator (zero Python dependency!)
-fn handle_rust_pdf2step(body: &str) -> String {
+/// Delegates 3D STEP import & 2D PDF->3D B-Rep STEP synthesis to Real OpenCascade OCCT 8.0 when installed,
+/// with automatic pure-Rust fallback on standalone portable machines!
+fn handle_rust_pdf2step(body: &str, is_refine: bool) -> String {
+    let occt_py = "/Users/bahadir/Desktop/BahaTech/.venv_cad/bin/python";
+    let occt_worker = "/Users/bahadir/Desktop/BahaTech/bahatech-web/cad_occt_worker.py";
+    if PathBuf::from(occt_py).exists() && PathBuf::from(occt_worker).exists() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(9);
+        let in_f = env::temp_dir().join(format!("bw_cad_in_{}.json", stamp));
+        let out_f = env::temp_dir().join(format!("bw_cad_out_{}.json", stamp));
+        let req_payload = if is_refine {
+            // inject mode="refine" cleanly
+            if let Some(rest) = body.trim().strip_prefix('{') {
+                format!(r#"{{"mode":"refine",{}"#, rest)
+            } else {
+                body.to_string()
+            }
+        } else {
+            body.to_string()
+        };
+        if fs::write(&in_f, req_payload.as_bytes()).is_ok() {
+            let status = Command::new(occt_py)
+                .arg(occt_worker)
+                .arg(&in_f)
+                .arg(&out_f)
+                .status();
+            let _ = fs::remove_file(&in_f);
+            if status.map(|s| s.success()).unwrap_or(false) {
+                if let Ok(resp) = fs::read_to_string(&out_f) {
+                    let _ = fs::remove_file(&out_f);
+                    if !resp.trim().is_empty() {
+                        return resp;
+                    }
+                }
+            }
+            let _ = fs::remove_file(&out_f);
+        }
+    }
+
     let fname = extract_json_str(body, "filename");
     let b64_raw = extract_json_str(body, "file_b64");
     let b64_clean = b64_raw.split_once(',').map(|(_, r)| r).unwrap_or(&b64_raw);
